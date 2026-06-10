@@ -1,0 +1,54 @@
+# Dependencies
+node_modules/
+
+# Vite / build output
+dist/
+.vite/
+
+# Environment variables / secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Local editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Testing / coverage
+coverage/
+
+# TypeScript / build cache
+*.tsbuildinfo
+
+# Package manager cache
+.pnpm-store/
+
+# Temporary files
+tmp/
+temp/
+
+# Local HTTPS certificates, if you generate them for WebXR testing
+certs/
+*.pem
+*.key
+*.crt
+
+# Unity/Blender/export scratch folders, if this project uses local 3D asset exports
+Exports/
+exports/
+Temp/
+temp/
