@@ -78,7 +78,6 @@ export function createWebXRApp(options = {}) {
 
     const hand = renderer.xr.getHand(i)
     hand.name = i === 0 ? 'XRHand_Left' : 'XRHand_Right'
-
     hand.visible = false
 
     if (showHandModels) {
@@ -253,27 +252,23 @@ export function createWebXRApp(options = {}) {
   }
 
   function updateXRHandModelVisibility(isXR) {
-  for (const hand of xrHands) {
-    if (!isXR || !showHandModels) {
-      hand.visible = false
-      continue
+    for (const hand of xrHands) {
+      if (!isXR || !showHandModels) {
+        hand.visible = false
+        continue
+      }
+
+      const wrist = hand.joints?.wrist
+      const indexTip = hand.joints?.['index-finger-tip']
+      const thumbTip = hand.joints?.['thumb-tip']
+
+      hand.visible = Boolean(
+        wrist?.visible ||
+        indexTip?.visible ||
+        thumbTip?.visible,
+      )
     }
-
-    const wrist = hand.joints?.wrist
-    const indexTip = hand.joints?.['index-finger-tip']
-    const thumbTip = hand.joints?.['thumb-tip']
-
-    /*
-      Only reveal the rendered hand mesh once actual joints are visible.
-      This prevents the default/rest hand mesh from appearing at the floor.
-    */
-    hand.visible = Boolean(
-      wrist?.visible ||
-      indexTip?.visible ||
-      thumbTip?.visible,
-    )
   }
-}
 
   function updateDebugPanel(locomotionState, interactionState) {
     if (!(options.showXRDebugPanel ?? false)) return
@@ -297,7 +292,10 @@ export function createWebXRApp(options = {}) {
       `R visible: ${right.visible}`,
       `R fist: ${right.fistActive}`,
       `R confidence: ${right.fistConfidence.toFixed(2)}`,
-      `R index curl: ${right.indexCurl.toFixed(2)}`,
+      `R index curl: ${right.indexCurl.toFixed(2)} ${right.indexCurlPasses ? '✓' : 'x'}`,
+      `R middle curl: ${right.middleCurl.toFixed(2)} ${right.middleCurlPasses ? '✓' : 'x'}`,
+      `R ring curl: ${right.ringCurl.toFixed(2)} ${right.ringCurlPasses ? '✓' : 'x'}`,
+      `R pinky curl: ${right.pinkyCurl.toFixed(2)} ${right.pinkyCurlPasses ? '✓' : 'x'}`,
       `R pose: ${right.thumbPose}`,
       `R thumb X: ${right.thumbLocal.x.toFixed(2)}`,
       `R thumb Y: ${right.thumbLocal.y.toFixed(2)}`,
@@ -312,7 +310,10 @@ export function createWebXRApp(options = {}) {
       `L visible: ${left.visible}`,
       `L fist: ${left.fistActive}`,
       `L confidence: ${left.fistConfidence.toFixed(2)}`,
-      `L index curl: ${left.indexCurl.toFixed(2)}`,
+      `L index curl: ${left.indexCurl.toFixed(2)} ${left.indexCurlPasses ? '✓' : 'x'}`,
+      `L middle curl: ${left.middleCurl.toFixed(2)} ${left.middleCurlPasses ? '✓' : 'x'}`,
+      `L ring curl: ${left.ringCurl.toFixed(2)} ${left.ringCurlPasses ? '✓' : 'x'}`,
+      `L pinky curl: ${left.pinkyCurl.toFixed(2)} ${left.pinkyCurlPasses ? '✓' : 'x'}`,
       `L pose: ${left.thumbPose}`,
       `L thumb X: ${left.thumbLocal.x.toFixed(2)}`,
       `L thumb Y: ${left.thumbLocal.y.toFixed(2)}`,

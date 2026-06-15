@@ -154,30 +154,10 @@ export class HandLocomotionGestureSystem {
     this.settings = {
       profileName: 'quest',
 
-      /*
-        These are project-level frame tuning values.
-
-        They intentionally affect:
-          thumbLocal
-          joystickX / joystickZ
-          indicator anchor/orientation
-      */
       frameTiltXDegrees: -20,
       frameTiltZDegreesRight: -20,
       frameTiltZDegreesLeft: 20,
 
-      /*
-        Angle curl calibration.
-
-        curlStartDegrees:
-          Bend angles below this are treated as mostly straight.
-
-        curlFullDegrees:
-          Bend angles at/above this are treated as fully curled.
-
-        These are not activation thresholds.
-        They control how raw bend angle maps into 0..1 curl.
-      */
       curlStartDegrees: 15,
       curlFullDegrees: 95,
 
@@ -208,11 +188,6 @@ export class HandLocomotionGestureSystem {
       handedness,
 
       fistActive: false,
-
-      /*
-        Debug/readout only.
-        Activation does not use average fist confidence anymore.
-      */
       fistConfidence: 0,
 
       indexCurl: 0,
@@ -243,17 +218,9 @@ export class HandLocomotionGestureSystem {
 
       thumbPose: 'neutral',
 
-      /*
-        The reusable output:
-          joystickX = thumb left/right
-          joystickZ = thumb forward/back
-      */
       joystickX: 0,
       joystickZ: 0,
 
-      /*
-        Backward-compatible aliases.
-      */
       moveIntentX: 0,
       moveIntentZ: 0,
       turnIntentY: 0,
@@ -451,24 +418,14 @@ export class HandLocomotionGestureSystem {
     const thumbMetacarpal =
       p['thumb-metacarpal']
 
-    /*
-      Local Y follows the stable cross-hand span.
-    */
     let yAxis = new THREE.Vector3()
       .subVectors(indexIntermediate, pinkyIntermediate)
       .normalize()
 
-    /*
-      Raw forward candidate:
-      thumb metacarpal -> middle intermediate.
-    */
     const rawForwardAxis = new THREE.Vector3()
       .subVectors(middleIntermediate, thumbMetacarpal)
       .normalize()
 
-    /*
-      Project raw forward onto the plane perpendicular to Y.
-    */
     let zAxis = rawForwardAxis
       .clone()
       .sub(
@@ -480,10 +437,6 @@ export class HandLocomotionGestureSystem {
 
     if (zAxis.lengthSq() <= 0.0001) return null
 
-    /*
-      Build a clean orthonormal basis.
-      This prevents visual scaling/shearing in systems that use the frame.
-    */
     let xAxis = new THREE.Vector3()
       .crossVectors(yAxis, zAxis)
       .normalize()
@@ -496,18 +449,12 @@ export class HandLocomotionGestureSystem {
       .crossVectors(zAxis, xAxis)
       .normalize()
 
-    /*
-      Tip the control frame around local X.
-    */
     rotateAxesAroundLocalAxis(
       xAxis,
       [yAxis, zAxis],
       this.settings.frameTiltXDegrees,
     )
 
-    /*
-      Mirror Z-roll by hand.
-    */
     const zTiltDegrees =
       handedness === 'right'
         ? this.settings.frameTiltZDegreesRight
@@ -521,9 +468,6 @@ export class HandLocomotionGestureSystem {
 
     const origin = indexDistal.clone()
 
-    /*
-      Scale uses the wider stable knuckle span.
-    */
     const handScale =
       indexIntermediate.distanceTo(pinkyIntermediate)
 
@@ -545,15 +489,11 @@ export class HandLocomotionGestureSystem {
     const ring = this.computeFingerAngleCurl(p, 'ring-finger')
     const pinky = this.computeFingerAngleCurl(p, 'pinky-finger')
 
-    /*
-      Debug/readout only.
-      This is no longer used for activation.
-    */
     const fistConfidence =
       (index + middle + ring + pinky) / 4
 
     const defaultThreshold =
-      profile.fingerCurlThreshold ?? 0.35
+      profile.fingerCurlThreshold ?? 0.6
 
     const indexThreshold =
       profile.indexCurlThreshold ?? defaultThreshold
@@ -583,16 +523,6 @@ export class HandLocomotionGestureSystem {
     const pinkyPasses =
       pinky >= pinkyThreshold
 
-    /*
-      Recommended activation rule:
-
-        No averaging.
-        No weighted compensation.
-        Each required finger must pass.
-
-      This prevents a pointed index finger from being compensated for
-      by curled middle/ring/pinky fingers.
-    */
     const fistActive =
       indexPasses &&
       middlePasses &&
@@ -635,9 +565,6 @@ export class HandLocomotionGestureSystem {
       return 0
     }
 
-    /*
-      Segment directions from the base of the finger to the tip.
-    */
     const s0 = new THREE.Vector3()
       .subVectors(proximal, meta)
 
@@ -664,23 +591,10 @@ export class HandLocomotionGestureSystem {
     s2.normalize()
     s3.normalize()
 
-    /*
-      Bend angles between adjacent bones.
-
-      A straight finger has low bend angles.
-      A curled finger has larger bend angles.
-    */
     const bend01 = this.angleBetweenSegmentsDegrees(s0, s1)
     const bend12 = this.angleBetweenSegmentsDegrees(s1, s2)
     const bend23 = this.angleBetweenSegmentsDegrees(s2, s3)
 
-    /*
-      Weighted bend.
-
-      The middle and distal joints tend to express visible finger curl
-      more consistently than the metacarpal/proximal joint across runtimes,
-      so they get slightly more weight.
-    */
     const weightedBend =
       bend01 * 0.25 +
       bend12 * 0.45 +

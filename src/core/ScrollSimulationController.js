@@ -32,10 +32,6 @@ export class ScrollSimulationController {
     window.addEventListener('scroll', this.queueUpdate)
     window.addEventListener('resize', this.queueUpdate)
 
-    /*
-      Run once after layout has settled.
-      This lets the page position choose the correct starting simulation.
-    */
     this.queueUpdate()
   }
 
@@ -83,9 +79,6 @@ export class ScrollSimulationController {
     for (const section of this.sections) {
       const rect = section.getBoundingClientRect()
 
-      /*
-        Ignore sections that are completely outside the viewport.
-      */
       const isVisible = rect.bottom > 0 && rect.top < window.innerHeight
       if (!isVisible) continue
 
@@ -111,10 +104,6 @@ export class ScrollSimulationController {
   updateFromScroll() {
     this.scrollSwitchQueued = false
 
-    /*
-      Do not let webpage scroll change the active simulation
-      while the user is inside XR.
-    */
     if (this.app.renderer.xr.isPresenting) return
 
     const closestSection = this.getClosestSectionToViewportCenter()

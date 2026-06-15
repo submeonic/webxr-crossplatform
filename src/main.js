@@ -7,13 +7,6 @@ import { createIntroSphereSimulation } from './simulations/introSphere.js'
 import { createShellRegionSimulation } from './simulations/shellRegion.js'
 import { createOrbitalViewSimulation } from './simulations/orbitalView.js'
 
-/* ====================================================
-   FADE-IN SCROLL ANIMATIONS
-
-   This is page/UI behavior, so it can stay in main.js.
-   Simulation switching now lives in ScrollSimulationController.
-==================================================== */
-
 function initializeFadeInAnimations() {
   const elements = document.querySelectorAll('.fade-scroll')
 
@@ -33,25 +26,18 @@ function initializeFadeInAnimations() {
 
 initializeFadeInAnimations()
 
-/* ====================================================
-   WEBXR APP SETUP
-==================================================== */
-
 const canvasContainer = document.getElementById('xr-canvas-container')
 const xrButtonContainer = document.getElementById('xr-button-container')
 
 const app = createWebXRApp({
   container: canvasContainer,
   xrButtonContainer,
+
   showHandModels: true,
   showXRDebugPanel: false,
   showHandDebugJoints: false,
   showHandDebugAxes: false,
 })
-
-/* ====================================================
-   SIMULATION REGISTRY
-==================================================== */
 
 const simulations = {
   intro: createIntroSphereSimulation(app),
@@ -63,10 +49,6 @@ for (const simulation of Object.values(simulations)) {
   simulation.exit()
 }
 
-/* ====================================================
-   SCROLL-BASED SIMULATION SWITCHING
-==================================================== */
-
 const scrollSimulationController = new ScrollSimulationController({
   app,
   simulations,
@@ -76,9 +58,5 @@ const scrollSimulationController = new ScrollSimulationController({
 })
 
 scrollSimulationController.start()
-
-/* ====================================================
-   START
-==================================================== */
 
 app.start()

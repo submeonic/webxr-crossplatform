@@ -24,10 +24,6 @@ function createHandState(handedness) {
     previousPinchPosition: new THREE.Vector3(),
     pinchDelta: new THREE.Vector3(),
 
-    /*
-      This gives simulations a simple forward ray from the pinch point.
-      It is useful later for pointing, grabbing, hovering, and ray-based UI.
-    */
     pinchRay: new THREE.Ray(),
   }
 }
@@ -103,16 +99,13 @@ export class HandInteractionSystem {
 
     handState.previousPinchPosition.copy(handState.pinchPosition)
     handState.pinchPosition.copy(TEMP_PINCH_POSITION)
+
     handState.pinchDelta
       .copy(handState.pinchPosition)
       .sub(handState.previousPinchPosition)
 
     const wasPinching = handState.pinchActive
 
-    /*
-      Hysteresis prevents pinching from flickering on/off
-      when the fingers hover around the threshold.
-    */
     if (!wasPinching && pinchDistance <= PINCH_START_DISTANCE) {
       handState.pinchActive = true
       handState.pinchStarted = true

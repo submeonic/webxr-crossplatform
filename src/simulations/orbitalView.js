@@ -88,6 +88,10 @@ export function createOrbitalViewSimulation(app) {
     group,
     simulationRoot,
     contentAnchor,
+
+    desktopOrbitTarget: simulationRoot,
+    desktopOrbitOffset: new THREE.Vector3(0, CONTENT_HEIGHT, 0),
+
     orbitTarget: contentAnchor,
 
     enter() {
@@ -98,13 +102,6 @@ export function createOrbitalViewSimulation(app) {
       group.visible = false
     },
 
-    /*
-      Reserved for orbital-specific interactions.
-      Example future uses:
-      - pinch orbit to scrub electron position
-      - grab and rotate orbital
-      - switch orbital type with hand gesture
-    */
     handleInput() {},
 
     update(deltaTime) {

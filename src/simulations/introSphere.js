@@ -109,9 +109,6 @@ export function createIntroSphereSimulation(app) {
     },
 
     handleInput(interactionState) {
-      /*
-        If no hand is currently controlling scale, either hand may start it.
-      */
       if (!scaleInteraction.active) {
         const started = getPinchStartedHand(interactionState)
 
@@ -128,9 +125,6 @@ export function createIntroSphereSimulation(app) {
       const activeHand =
         interactionState[scaleInteraction.handedness]
 
-      /*
-        If the controlling hand disappears or releases pinch, stop scaling.
-      */
       if (
         !activeHand ||
         activeHand.pinchEnded ||
@@ -143,11 +137,6 @@ export function createIntroSphereSimulation(app) {
       const dragY =
         activeHand.pinchPosition.y - scaleInteraction.startY
 
-      /*
-        Vertical drag scaling:
-          drag up = bigger
-          drag down = smaller
-      */
       const nextScale = THREE.MathUtils.clamp(
         scaleInteraction.startScale + dragY * 1.5,
         0.35,

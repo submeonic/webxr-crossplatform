@@ -74,6 +74,10 @@ export function createShellRegionSimulation(app) {
     group,
     simulationRoot,
     contentAnchor,
+
+    desktopOrbitTarget: simulationRoot,
+    desktopOrbitOffset: new THREE.Vector3(0, CONTENT_HEIGHT, 0),
+
     orbitTarget: contentAnchor,
 
     enter() {
@@ -84,14 +88,6 @@ export function createShellRegionSimulation(app) {
       group.visible = false
     },
 
-    /*
-      Reserved for shell-specific interactions.
-      Example future uses:
-      - pinch-drag inner radius
-      - pinch-drag outer radius
-      - grab shell band
-      - two-hand scale shell region
-    */
     handleInput() {},
 
     update(deltaTime) {
