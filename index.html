@@ -4,10 +4,89 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>webxr-crossplatform</title>
+    <title>LearnQM WebXR Template</title>
   </head>
-  <body>
-    <div id="app"></div>
+
+  <body id="body_parent" class="noselect">
+    <div id="app">
+      <a class="backButton" href="/">
+        ← All chapters
+      </a>
+
+      <header class="title-row fade-scroll">
+        <h1>LearnQM WebXR Template</h1>
+        <p>
+          A cross-platform WebXR learning template for desktop, Meta Quest, and
+          Apple Vision-style spatial devices. Scroll through the lesson to swap
+          simulations, or enter XR to explore with hand-based locomotion.
+        </p>
+      </header>
+
+      <div class="content">
+        <main class="lesson-content">
+          <section class="lesson-section fade-scroll" data-simulation="intro">
+            <p class="eyebrow">Simulation 01</p>
+            <h2>Gesture Locomotion</h2>
+            <p>
+              This template includes a shared WebXR shell, a sticky 3D viewer,
+              desktop fallback navigation, and a thumb-controlled virtual D-pad
+              locomotion system for immersive XR.
+            </p>
+            <p>
+              On desktop, use <strong>WASD</strong> or the
+              <strong>arrow keys</strong> to orbit and dolly around the active
+              simulation target.
+            </p>
+          </section>
+
+          <section class="lesson-section fade-scroll" data-simulation="shell">
+            <p class="eyebrow">Simulation 02</p>
+            <h2>Shell Region</h2>
+            <p>
+              As the lesson scrolls, the right-side viewer keeps the same
+              renderer, camera, player rig, XR button, and locomotion system.
+              Only the active simulation module changes.
+            </p>
+            <p>
+              When a new simulation becomes active, the player rig and camera
+              are reset so each section starts from a predictable view.
+            </p>
+          </section>
+
+          <section class="lesson-section fade-scroll" data-simulation="orbital">
+            <p class="eyebrow">Simulation 03</p>
+            <h2>Orbital View</h2>
+            <p>
+              Each visualization is written as a small module with
+              <code>enter()</code>, <code>exit()</code>,
+              <code>update()</code>, and an <code>orbitTarget</code>.
+            </p>
+            <p>
+              This lets new LearnQM chapters reuse the same WebXR infrastructure
+              while replacing only the educational scene content.
+            </p>
+          </section>
+        </main>
+
+        <aside class="simulation-column">
+          <div class="simulation-sticky fade-scroll">
+            <div class="viewer-label">
+              <span>Interactive 3D View</span>
+              <span class="viewer-status">Desktop / XR Ready</span>
+            </div>
+
+            <div id="xr-canvas-container"></div>
+
+            <div id="xr-button-container"></div>
+
+            <p class="viewer-hint">
+              Desktop: WASD / arrows · XR: hand D-pad locomotion
+            </p>
+          </div>
+        </aside>
+      </div>
+    </div>
+
     <script type="module" src="/src/main.js"></script>
   </body>
 </html>

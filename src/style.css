@@ -1,14 +1,471 @@
+@import url("https://fonts.googleapis.com/css2?family=Bai+Jamjuree:ital,wght@0,200;0,300;0,400;0,500;0,600;0,700;1,200;1,300;1,400;1,500;1,600;1,700&display=swap");
+
+@font-face {
+  font-family: "Agency FB";
+  src: url("/fonts/AGENCYB.TTF") format("truetype");
+  font-weight: bold;
+  font-style: normal;
+  font-display: swap;
+}
+
+@font-face {
+  font-family: "Agency FB";
+  src: url("/fonts/AGENCYR.TTF") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+:root {
+  --brand: #fff7ae;
+  --bgGrey: #575757;
+  --bg: #121212;
+  --buttonBg: #191919;
+  --text: #ffffff;
+  --muted: rgba(255, 255, 255, 0.65);
+  --canvasBg: #0d0d1a;
+  --line: rgba(255, 255, 255, 0.14);
+}
+
+*,
+::before,
+::after {
+  box-sizing: border-box;
+}
+
 html,
 body {
   margin: 0;
-  overflow: hidden;
-  background: black;
+  min-height: 100%;
 }
 
-canvas {
+#body_parent {
+  background-color: var(--bg);
+  padding-bottom: 50px;
+  overflow-x: hidden;
+  color: var(--text);
+  font-family: "Bai Jamjuree", sans-serif;
+}
+
+#app {
+  width: 100%;
+  min-height: 100vh;
+}
+
+/* Back button: matches the live LearnQM style */
+.backButton {
+  position: fixed;
+  top: 10px;
+  left: 10px;
+  z-index: 1000;
+
+  background-color: var(--buttonBg);
+  border: 2px solid var(--brand);
+  border-radius: 8px;
+
+  color: var(--brand);
+  padding: 12px 16px;
+
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+
+  font-family: "Bai Jamjuree", sans-serif;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.backButton:visited,
+.backButton:hover,
+.backButton:active {
+  color: var(--brand);
+  text-decoration: none;
+}
+
+/* Title row: live-site typography, previous layout feel */
+.title-row {
+  max-width: 940px;
+  margin: 0 auto;
+  padding-top: 260px;
+  padding-left: 2rem;
+  padding-right: 2rem;
+  text-align: center;
+}
+
+.title-row h1 {
+  margin: 0;
+
+  font-family: "Agency FB", Impact, "Arial Narrow", sans-serif;
+  font-style: normal;
+  font-weight: bold;
+  letter-spacing: 2px;
+
+  font-size: 48px;
+  line-height: 96px;
+
+  text-align: center;
+  text-transform: uppercase;
+
+  color: var(--brand);
+}
+
+.title-row p {
+  margin-top: 30px;
+  margin-bottom: 0;
+
+  font-family: "Bai Jamjuree", sans-serif;
+  font-style: normal;
+  font-weight: normal;
+
+  font-size: 20px;
+  line-height: 30px;
+
+  color: var(--text);
+  text-align: center;
+}
+
+/* Main two-column layout */
+.content {
+  display: grid;
+  grid-template-columns: minmax(320px, 38vw) 1fr;
+  gap: 4rem;
+
+  width: min(1500px, calc(100vw - 8rem));
+  margin: 0 auto;
+  padding-bottom: 300px;
+}
+
+.lesson-content {
+  min-width: 0;
+  padding-bottom: 12rem;
+}
+
+/* Larger spacing so scroll-based simulation switching feels deliberate */
+.lesson-section {
+  min-height: 120vh;
+  margin-top: 320px;
+
+  opacity: 0;
+  transform: translateY(50px);
+  transition: all 0.3s ease-out;
+}
+
+.lesson-section:first-child {
+  margin-top: 320px;
+}
+
+.lesson-section:last-child {
+  margin-bottom: 360px;
+}
+
+.lesson-section .eyebrow {
+  margin-top: 0;
+  margin-bottom: 12px;
+
+  font-family: "Bai Jamjuree", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+
+  color: var(--brand);
+  opacity: 0.85;
+}
+
+.lesson-section h2 {
+  margin: 0;
+
+  font-family: "Agency FB", Impact, "Arial Narrow", sans-serif;
+  font-style: normal;
+  font-weight: normal;
+
+  font-size: 36px;
+  line-height: 72px;
+
+  letter-spacing: 0;
+  text-transform: none;
+
+  color: var(--brand);
+}
+
+.lesson-section p {
+  margin-top: 30px;
+  margin-bottom: 0;
+
+  max-width: 720px;
+
+  font-family: "Bai Jamjuree", sans-serif;
+  font-style: normal;
+  font-weight: normal;
+
+  font-size: 18px;
+  line-height: 27px;
+
+  color: var(--text);
+}
+
+.lesson-section strong {
+  color: var(--brand);
+  font-weight: 600;
+}
+
+.lesson-section code {
+  font-family: "Bai Jamjuree", ui-monospace, monospace;
+  font-size: 0.88em;
+
+  color: var(--brand);
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+
+  padding: 0.1em 0.45em;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Fade-in class used by main.js */
+.fade-scroll.visible,
+.fade-in {
+  opacity: 1 !important;
+  transform: translateY(0px) !important;
+}
+
+/* Sticky WebXR viewer */
+.simulation-column {
+  position: relative;
+  min-width: 0;
+}
+
+.simulation-sticky {
+  position: sticky;
+  top: 10vh;
+
+  height: 80vh;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+
+  gap: 1rem;
+}
+
+.viewer-label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  font-family: "Bai Jamjuree", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+
+  color: var(--brand);
+}
+
+.viewer-status {
+  color: var(--muted);
+  font-weight: normal;
+}
+
+#xr-canvas-container {
+  width: 100%;
+  height: min(58vh, 600px);
+
+  display: block;
+
+  background: var(--canvasBg);
+  border: 1px solid var(--line);
+  overflow: hidden;
+}
+
+#xr-canvas-container canvas {
+  width: 100%;
+  height: 100%;
   display: block;
 }
 
-button {
-  font-size: 1rem !important;
+/* XR button under canvas */
+#xr-button-container {
+  min-height: 52px;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  padding-top: 0.5rem;
+}
+
+#xr-button-container button,
+#xr-button-container a,
+#VRButton {
+  position: static !important;
+
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+
+  min-width: 170px;
+  min-height: 42px;
+
+  background-color: var(--buttonBg) !important;
+  border: 2px solid var(--brand) !important;
+  border-radius: 8px !important;
+
+  color: var(--brand) !important;
+
+  font-family: "Bai Jamjuree", sans-serif !important;
+  font-size: 16px !important;
+  font-weight: normal !important;
+  letter-spacing: 0 !important;
+
+  padding: 12px 16px !important;
+  cursor: pointer !important;
+}
+
+#xr-button-container button:hover,
+#xr-button-container a:hover,
+#VRButton:hover {
+  color: var(--brand) !important;
+  text-decoration: none !important;
+}
+
+.viewer-hint {
+  margin: 0;
+
+  color: var(--muted);
+
+  font-family: "Bai Jamjuree", sans-serif;
+  font-size: 14px;
+  line-height: 20px;
+
+  text-align: center;
+}
+
+/* Utility classes from live site */
+.noselect {
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+.cursor-grab {
+  cursor: -webkit-grab;
+  cursor: grab;
+}
+
+.cursor-point {
+  cursor: pointer;
+}
+
+/* D3/live-site compatibility classes */
+.axis line {
+  stroke: #fff;
+}
+
+.axis path {
+  fill: none;
+  stroke: #fff;
+}
+
+.label {
+  fill: #fff;
+}
+
+#d3-viz {
+  min-height: 400px;
+  opacity: 0;
+  transform: translateY(50px);
+  transition: all 0.3s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+  .content {
+    display: flex;
+    flex-direction: column;
+
+    width: min(900px, calc(100vw - 4rem));
+    gap: 2rem;
+
+    padding-bottom: 150px;
+  }
+
+  .title-row {
+    padding-top: 180px;
+  }
+
+  .simulation-sticky {
+    position: relative;
+    top: 0;
+    height: auto;
+    min-height: 70vh;
+  }
+
+  #xr-canvas-container {
+    height: 58vh;
+  }
+
+  .lesson-section {
+    min-height: auto;
+    margin-top: 180px;
+  }
+
+  .lesson-section:first-child {
+    margin-top: 180px;
+  }
+}
+
+@media (max-width: 450px) {
+  .content {
+    width: calc(100vw - 2rem);
+  }
+
+  .title-row {
+    padding-top: 120px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .title-row h1 {
+    font-size: 32px;
+    line-height: 48px;
+  }
+
+  .title-row p {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  .lesson-section {
+    margin-top: 120px;
+  }
+
+  .lesson-section:first-child {
+    margin-top: 120px;
+  }
+
+  .lesson-section h2 {
+    font-size: 28px;
+    line-height: 42px;
+  }
+
+  .lesson-section p {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
+  #xr-canvas-container {
+    height: 400px;
+  }
+
+  .viewer-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
 }

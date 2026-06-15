@@ -1,643 +1,182 @@
 import './style.css'
 
-import * as THREE from 'three'
+import { createWebXRApp } from './core/createWebXRApp.js'
 
-import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
-import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
-import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
-
-import { HandDebugSystem } from './systems/HandDebugSystem.js'
-import { HandLocomotionGestureSystem } from './systems/HandLocomotionGestureSystem.js'
-import { HandLocomotionSystem } from './systems/HandLocomotionSystem.js'
-import { HandLocomotionIndicator } from './systems/HandLocomotionIndicator.js'
-import { XRDebugPanel } from './systems/XRDebugPanel.js'
+import { createIntroSphereSimulation } from './simulations/introSphere.js'
+import { createShellRegionSimulation } from './simulations/shellRegion.js'
+import { createOrbitalViewSimulation } from './simulations/orbitalView.js'
 
 /*
 ====================================================
-DEVICE PROFILE
+FADE-IN SCROLL ANIMATIONS
 ====================================================
 */
 
-const FORCE_PROFILE = null
-// const FORCE_PROFILE = 'quest'
-// const FORCE_PROFILE = 'vision'
+function initializeFadeInAnimations() {
+  const elements = document.querySelectorAll('.fade-scroll')
 
-function detectDeviceProfile() {
-  const ua = navigator.userAgent || ''
-
-  if (/OculusBrowser|Quest|Meta Quest/i.test(ua)) {
-    return 'quest'
+  const check = () => {
+    elements.forEach((element) => {
+      if (
+        element.getBoundingClientRect().top <
+        window.innerHeight * 0.88
+      ) {
+        element.classList.add('visible')
+      }
+    })
   }
 
-  return 'vision'
+  window.addEventListener('scroll', check)
+  window.addEventListener('resize', check)
+
+  check()
 }
 
-const ACTIVE_HAND_PROFILE =
-  FORCE_PROFILE ?? detectDeviceProfile()
+initializeFadeInAnimations()
 
 /*
 ====================================================
-CODE TOGGLES
+WEBXR APP SETUP
 ====================================================
 */
 
-const SHOW_HAND_MODELS = true
-const SHOW_HAND_DEBUG_JOINTS = false
-const SHOW_HAND_DEBUG_AXES = false
-const SHOW_XR_DEBUG_PANEL = false
+const canvasContainer =
+  document.getElementById('xr-canvas-container')
 
-/*
-====================================================
-SCENE
-====================================================
-*/
+const xrButtonContainer =
+  document.getElementById('xr-button-container')
 
-const scene = new THREE.Scene()
-scene.background = new THREE.Color(0x101010)
+const app = createWebXRApp({
+  container: canvasContainer,
+  xrButtonContainer,
 
-/*
-====================================================
-CAMERA + PLAYER RIG
+  showHandModels: true,
 
-Important:
-WebXR updates the camera pose from headset tracking.
-Artificial locomotion should move/rotate playerRig, not camera.
-====================================================
-*/
-
-const camera = new THREE.PerspectiveCamera(
-  75,
-  window.innerWidth / window.innerHeight,
-  0.01,
-  100
-)
-
-camera.position.set(0, 1.6, 3)
-
-const playerRig = new THREE.Group()
-playerRig.name = 'PlayerRig'
-playerRig.add(camera)
-scene.add(playerRig)
-
-/*
-====================================================
-RENDERER
-====================================================
-*/
-
-const renderer = new THREE.WebGLRenderer({
-  antialias: true
-})
-
-renderer.setSize(window.innerWidth, window.innerHeight)
-renderer.setPixelRatio(window.devicePixelRatio)
-
-renderer.xr.enabled = true
-
-document.body.appendChild(renderer.domElement)
-
-/*
-====================================================
-WEBXR BUTTON
-====================================================
-*/
-
-document.body.appendChild(
-  VRButton.createButton(renderer, {
-    optionalFeatures: [
-      'local-floor',
-      'bounded-floor',
-      'hand-tracking'
-    ]
-  })
-)
-
-/*
-====================================================
-LIGHTS
-====================================================
-*/
-
-const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2)
-scene.add(hemiLight)
-
-const dirLight = new THREE.DirectionalLight(0xffffff, 2)
-dirLight.position.set(1, 3, 2)
-scene.add(dirLight)
-
-/*
-====================================================
-FLOOR
-====================================================
-*/
-
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(20, 20),
-  new THREE.MeshStandardMaterial({
-    color: 0x222222
-  })
-)
-
-floor.rotation.x = -Math.PI / 2
-floor.position.y = 0
-
-scene.add(floor)
-
-/*
-====================================================
-TEST SPHERE
-====================================================
-*/
-
-const sphereMaterial = new THREE.MeshStandardMaterial({
-  color: 0xff4444
-})
-
-const sphere = new THREE.Mesh(
-  new THREE.SphereGeometry(0.25, 64, 64),
-  sphereMaterial
-)
-
-sphere.position.set(0, 1.5, -2)
-
-scene.add(sphere)
-
-/*
-====================================================
-SELECTION
-====================================================
-*/
-
-const raycaster = new THREE.Raycaster()
-const tempMatrix = new THREE.Matrix4()
-
-let selected = false
-
-function toggleSphereSelection() {
-  selected = !selected
-
-  sphere.material.color.set(
-    selected ? 0x00ff00 : 0xff4444
-  )
-}
-
-function handleSelection(controller) {
-  tempMatrix.identity().extractRotation(controller.matrixWorld)
-
-  raycaster.ray.origin.setFromMatrixPosition(
-    controller.matrixWorld
-  )
-
-  raycaster.ray.direction
-    .set(0, 0, -1)
-    .applyMatrix4(tempMatrix)
-
-  const intersects = raycaster.intersectObject(sphere)
-
-  if (intersects.length > 0) {
-    toggleSphereSelection()
-  }
-}
-
-/*
-====================================================
-CONTROLLERS + HANDS
-
-Important:
-Controllers, grips, and hands are parented to playerRig.
-====================================================
-*/
-
-const controllerModelFactory = new XRControllerModelFactory()
-const handModelFactory = new XRHandModelFactory()
-
-for (let i = 0; i < 2; i++) {
-  const controller = renderer.xr.getController(i)
-
-  controller.addEventListener('selectstart', () => {
-    handleSelection(controller)
-  })
-
-  playerRig.add(controller)
-
-  const grip = renderer.xr.getControllerGrip(i)
-
-  grip.add(
-    controllerModelFactory.createControllerModel(grip)
-  )
-
-  playerRig.add(grip)
-
-  const hand = renderer.xr.getHand(i)
-
-  if (SHOW_HAND_MODELS) {
-    hand.add(
-      handModelFactory.createHandModel(hand, 'mesh')
-    )
-  }
-
-  playerRig.add(hand)
-}
-
-/*
-====================================================
-DESKTOP MOUSE SELECTION
-====================================================
-*/
-
-window.addEventListener('click', (event) => {
-  const mouse = new THREE.Vector2(
-    (event.clientX / window.innerWidth) * 2 - 1,
-    -(event.clientY / window.innerHeight) * 2 + 1
-  )
-
-  raycaster.setFromCamera(mouse, camera)
-
-  const intersects = raycaster.intersectObject(sphere)
-
-  if (intersects.length > 0) {
-    toggleSphereSelection()
-  }
+  showXRDebugPanel: false,
+  showHandDebugJoints: true,
+  showHandDebugAxes: true
 })
 
 /*
 ====================================================
-HAND LOCOMOTION SYSTEMS
+SIMULATION REGISTRY
 ====================================================
 */
 
-const handLocomotionGestureSystem =
-  new HandLocomotionGestureSystem(renderer, {
-    profileName: ACTIVE_HAND_PROFILE,
+const simulations = {
+  intro: createIntroSphereSimulation(app),
+  shell: createShellRegionSimulation(app),
+  orbital: createOrbitalViewSimulation(app)
+}
 
-    /*
-    These are gesture-frame tuning values.
-    They affect both the thumb joystick math and the indicator orientation.
-    */
-    frameTiltXDegrees: -20,
-    frameTiltZDegreesRight: -20,
-    frameTiltZDegreesLeft: 20
-  })
+for (const simulation of Object.values(simulations)) {
+  simulation.exit()
+}
 
-const handLocomotionSystem =
-  new HandLocomotionSystem({
-    playerRig,
-    camera,
-    gestureSystem: handLocomotionGestureSystem,
+let activeSimulationName = 'intro'
 
-    /*
-    mode:
-      'dpad' = one input at a time
-      'analog' = continuous joystick
-    */
-    mode: 'dpad',
-
-    dpadThreshold: 0.45,
-
-    /*
-    Default behavior:
-      joystick Z = forward/back movement
-      joystick X = turn left/right
-
-    No strafing by default.
-    */
-    allowStrafe: false,
-
-    moveSpeed: 0.8,
-    strafeSpeed: 0.7,
-    turnSpeed: 0.8,
-
-    smoothing: 6.0,
-
-    /*
-    Keep -1 if your turning direction currently feels correct.
-    Flip to 1 if left/right is inverted.
-    */
-    turnSign: -1,
-
-    activeHandPreference: 'right'
-  })
-/*
-====================================================
-HAND DEBUG
-====================================================
-*/
-
-const handDebugSystem = new HandDebugSystem(playerRig, renderer, {
-  showJoints: SHOW_HAND_DEBUG_JOINTS,
-  showAxes: SHOW_HAND_DEBUG_AXES,
-  jointSize: 0.012,
-  axisLength: 0.09,
-
-  // Important:
-  // Axes are now drawn from the final calculated gesture frame.
-  gestureSystem: handLocomotionGestureSystem
-})
-
-const handLocomotionIndicator =
-  new HandLocomotionIndicator(playerRig, {
-    modelPath: '/models/dpad_wedge.glb',
-
-    /*
-    Your current tuned indicator scale.
-    */
-    dpadDiameter: 0.07,
-
-    offsetX: 0.0,
-    offsetY: 0.0,
-    offsetZ: 0.0,
-
-    pressDepth: 0.001,
-    activeScale: 0.965
-  })
+app.setActiveSimulation(simulations[activeSimulationName])
 
 /*
 ====================================================
-XR DEBUG PANEL
+SCROLL-BASED SIMULATION SWITCHING
 ====================================================
 */
 
-const xrDebugPanel = new XRDebugPanel(camera)
+const sections =
+  Array.from(document.querySelectorAll('[data-simulation]'))
 
-/*
-====================================================
-DESKTOP KEYBOARD FALLBACK
-====================================================
-*/
+function setSimulationFromName(simulationName) {
+  if (!simulationName) return
+  if (simulationName === activeSimulationName) return
 
-const desktopOrbitKeys = {
-  forward: false,
-  back: false,
-  left: false,
-  right: false
+  const simulation = simulations[simulationName]
+
+  if (!simulation) {
+    console.warn(`No simulation registered for "${simulationName}"`)
+    return
+  }
+
+  activeSimulationName = simulationName
+  app.setActiveSimulation(simulation)
+
+  console.log(`Active simulation: ${simulationName}`)
 }
 
-const desktopOrbitSettings = {
-  orbitSpeed: 1.5,
-  dollySpeed: 2.0,
-  minDistance: 0.75,
-  maxDistance: 12.0
-}
+function getClosestSectionToViewportCenter() {
+  const viewportCenterY = window.innerHeight * 0.5
 
-const desktopOrbitState = {
-  initialized: false,
-  angle: 0,
-  distance: 5,
-  height: 1.6
-}
+  let closestSection = null
+  let closestDistance = Infinity
 
-function setDesktopOrbitKey(code, pressed) {
-  if (code === 'KeyW' || code === 'ArrowUp') {
-    desktopOrbitKeys.forward = pressed
-    return true
-  }
+  for (const section of sections) {
+    const rect = section.getBoundingClientRect()
 
-  if (code === 'KeyS' || code === 'ArrowDown') {
-    desktopOrbitKeys.back = pressed
-    return true
-  }
-
-  if (code === 'KeyA' || code === 'ArrowLeft') {
-    desktopOrbitKeys.left = pressed
-    return true
-  }
-
-  if (code === 'KeyD' || code === 'ArrowRight') {
-    desktopOrbitKeys.right = pressed
-    return true
-  }
-
-  return false
-}
-
-window.addEventListener('keydown', (e) => {
-  if (setDesktopOrbitKey(e.code, true)) {
-    e.preventDefault()
-  }
-})
-
-window.addEventListener('keyup', (e) => {
-  if (setDesktopOrbitKey(e.code, false)) {
-    e.preventDefault()
-  }
-})
-
-function initializeDesktopOrbitFallback() {
-  const target = sphere.position
-
-  const offset = camera.position.clone().sub(target)
-  offset.y = 0
-
-  desktopOrbitState.distance = THREE.MathUtils.clamp(
-    offset.length(),
-    desktopOrbitSettings.minDistance,
-    desktopOrbitSettings.maxDistance
-  )
-
-  desktopOrbitState.angle = Math.atan2(offset.x, offset.z)
-  desktopOrbitState.height = camera.position.y
-
-  desktopOrbitState.initialized = true
-}
-
-function updateDesktopOrbitFallback(deltaTime) {
-  if (!desktopOrbitState.initialized) {
-    initializeDesktopOrbitFallback()
-  }
-
-  const target = sphere.position
-
-  const orbitInput =
-    (desktopOrbitKeys.right ? 1 : 0) -
-    (desktopOrbitKeys.left ? 1 : 0)
-
-  const dollyInput =
-    (desktopOrbitKeys.back ? 1 : 0) -
-    (desktopOrbitKeys.forward ? 1 : 0)
-
-  desktopOrbitState.angle +=
-    orbitInput *
-    desktopOrbitSettings.orbitSpeed *
-    deltaTime
-
-  desktopOrbitState.distance +=
-    dollyInput *
-    desktopOrbitSettings.dollySpeed *
-    deltaTime
-
-  desktopOrbitState.distance = THREE.MathUtils.clamp(
-    desktopOrbitState.distance,
-    desktopOrbitSettings.minDistance,
-    desktopOrbitSettings.maxDistance
-  )
-
-  camera.position.set(
-    target.x +
-      Math.sin(desktopOrbitState.angle) *
-      desktopOrbitState.distance,
-
-    desktopOrbitState.height,
-
-    target.z +
-      Math.cos(desktopOrbitState.angle) *
-      desktopOrbitState.distance
-  )
-
-  camera.lookAt(target)
-}
-
-/*
-====================================================
-RESIZE
-====================================================
-*/
-
-window.addEventListener('resize', () => {
-  camera.aspect =
-    window.innerWidth / window.innerHeight
-
-  camera.updateProjectionMatrix()
-
-  renderer.setSize(
-    window.innerWidth,
-    window.innerHeight
-  )
-})
-
-/*
-====================================================
-ANIMATION LOOP
-====================================================
-*/
-
-const clock = new THREE.Clock()
-
-/*
-====================================================
-ANIMATION LOOP
-====================================================
-*/
-
-renderer.setAnimationLoop(() => {
-  const deltaTime = clock.getDelta()
-
-  let locomotionState
-
-  if (renderer.xr.isPresenting) {
     /*
-    XR MODE
-
-    Hand gesture system reads hand joints.
-    Hand locomotion system moves playerRig.
+    Ignore sections that are completely outside the viewport.
     */
-    handLocomotionGestureSystem.update()
+    const isVisible =
+      rect.bottom > 0 &&
+      rect.top < window.innerHeight
 
-    locomotionState =
-      handLocomotionSystem.update(deltaTime, {
-        fallbackIntent: {
-          moveX: 0,
-          moveZ: 0,
-          turnY: 0
-        }
-      })
-  } else {
-    /*
-    DESKTOP MODE
+    if (!isVisible) continue
 
-    Keyboard orbit fallback directly moves camera.
-    WASD / arrows:
-      W / Up    = dolly in
-      S / Down  = dolly out
-      A / Left  = orbit left
-      D / Right = orbit right
-    */
-    updateDesktopOrbitFallback(deltaTime)
+    const sectionCenterY =
+      rect.top + rect.height * 0.5
 
-    locomotionState = {
-      activeHand: null,
-      activeHandedness: 'none',
-      usingHands: false,
-      direction: 'desktop-orbit',
+    const distance =
+      Math.abs(sectionCenterY - viewportCenterY)
 
-      moveX: 0,
-      moveZ: 0,
-      turnY: 0,
-
-      currentMoveX: 0,
-      currentMoveZ: 0,
-      currentTurnY: 0
+    if (distance < closestDistance) {
+      closestDistance = distance
+      closestSection = section
     }
   }
 
-  /*
-  Keep the hand locomotion indicator alive.
-  In desktop mode, activeHand is null, so it should hide / idle.
-  */
-  handLocomotionIndicator.update({
-    activeHand: locomotionState.activeHand,
-    direction: locomotionState.direction,
-    deltaTime
-  })
+  return closestSection
+}
+
+let scrollSwitchQueued = false
+
+function updateSimulationFromScroll() {
+  scrollSwitchQueued = false
 
   /*
-  XR DEBUG PANEL
+  Do not let webpage scroll change the active simulation
+  while the user is inside XR.
   */
-  if (SHOW_XR_DEBUG_PANEL) {
-    const left = handLocomotionGestureSystem.hands.left
-    const right = handLocomotionGestureSystem.hands.right
+  if (app.renderer.xr.isPresenting) return
 
-    xrDebugPanel.setLines([
-      `PROFILE: ${ACTIVE_HAND_PROFILE.toUpperCase()}`,
-      `UA HAS QUEST: ${/OculusBrowser|Quest|Meta Quest/i.test(navigator.userAgent)}`,
-      `LOCOMOTION: ${handLocomotionSystem.settings.mode.toUpperCase()}`,
-      `ACTIVE HAND: ${locomotionState.activeHandedness.toUpperCase()}`,
-      `DIRECTION: ${locomotionState.direction}`,
-      '',
-      `R visible: ${right.visible}`,
-      `R fist: ${right.fistActive}`,
-      `R confidence: ${right.fistConfidence.toFixed(2)}`,
-      `R pose: ${right.thumbPose}`,
-      `R thumb X: ${right.thumbLocal.x.toFixed(2)}`,
-      `R thumb Y: ${right.thumbLocal.y.toFixed(2)}`,
-      `R thumb Z: ${right.thumbLocal.z.toFixed(2)}`,
-      `R delta X: ${right.deltaThumbLocal.x.toFixed(2)}`,
-      `R delta Z: ${right.deltaThumbLocal.z.toFixed(2)}`,
-      `R joyX: ${right.joystickX.toFixed(2)}`,
-      `R joyZ: ${right.joystickZ.toFixed(2)}`,
-      '',
-      `L visible: ${left.visible}`,
-      `L fist: ${left.fistActive}`,
-      `L confidence: ${left.fistConfidence.toFixed(2)}`,
-      `L pose: ${left.thumbPose}`,
-      `L thumb X: ${left.thumbLocal.x.toFixed(2)}`,
-      `L thumb Y: ${left.thumbLocal.y.toFixed(2)}`,
-      `L thumb Z: ${left.thumbLocal.z.toFixed(2)}`,
-      `L delta X: ${left.deltaThumbLocal.x.toFixed(2)}`,
-      `L delta Z: ${left.deltaThumbLocal.z.toFixed(2)}`,
-      `L joyX: ${left.joystickX.toFixed(2)}`,
-      `L joyZ: ${left.joystickZ.toFixed(2)}`,
-      '',
-      `moveX: ${locomotionState.moveX.toFixed(2)}`,
-      `moveZ: ${locomotionState.moveZ.toFixed(2)}`,
-      `turnY: ${locomotionState.turnY.toFixed(2)}`,
-      `Rig X: ${playerRig.position.x.toFixed(2)}`,
-      `Rig Z: ${playerRig.position.z.toFixed(2)}`,
-      `Rig Yaw: ${playerRig.rotation.y.toFixed(2)}`,
-      '',
-      `Camera X: ${camera.position.x.toFixed(2)}`,
-      `Camera Y: ${camera.position.y.toFixed(2)}`,
-      `Camera Z: ${camera.position.z.toFixed(2)}`
-    ])
+  const closestSection =
+    getClosestSectionToViewportCenter()
 
-    xrDebugPanel.update()
-  }
+  if (!closestSection) return
 
-  /*
-  HAND DEBUG VISUALS
-  */
-  if (SHOW_HAND_DEBUG_JOINTS || SHOW_HAND_DEBUG_AXES) {
-    handDebugSystem.update()
-  }
+  const simulationName =
+    closestSection.dataset.simulation
 
-  renderer.render(scene, camera)
-})
+  setSimulationFromName(simulationName)
+}
+
+function queueScrollSimulationUpdate() {
+  if (scrollSwitchQueued) return
+
+  scrollSwitchQueued = true
+  requestAnimationFrame(updateSimulationFromScroll)
+}
+
+window.addEventListener('scroll', queueScrollSimulationUpdate)
+window.addEventListener('resize', queueScrollSimulationUpdate)
+
+/*
+Run once after layout has settled.
+*/
+queueScrollSimulationUpdate()
+
+/*
+====================================================
+START
+====================================================
+*/
+
+app.start()
