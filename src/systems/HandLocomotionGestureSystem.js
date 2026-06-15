@@ -30,13 +30,14 @@ const REQUIRED_JOINTS = [
   'pinky-finger-phalanx-proximal',
   'pinky-finger-phalanx-intermediate',
   'pinky-finger-phalanx-distal',
-  'pinky-finger-tip'
+  'pinky-finger-tip',
 ]
 
 const DEFAULT_HAND_PROFILES = {
   quest: {
     right: {
-      fistThreshold: 0.6,
+      fingerCurlThreshold: 0.6,
+      requireIndexCurlForFist: true,
 
       neutralX: 0.0,
       neutralY: 0.2,
@@ -49,11 +50,12 @@ const DEFAULT_HAND_PROFILES = {
       gainZ: 9.0,
 
       invertX: true,
-      invertZ: false
+      invertZ: false,
     },
 
     left: {
-      fistThreshold: 0.6,
+      fingerCurlThreshold: 0.6,
+      requireIndexCurlForFist: true,
 
       neutralX: 0.0,
       neutralY: 0.2,
@@ -66,13 +68,14 @@ const DEFAULT_HAND_PROFILES = {
       gainZ: 9.0,
 
       invertX: true,
-      invertZ: false
-    }
+      invertZ: false,
+    },
   },
 
   vision: {
     right: {
-      fistThreshold: 0.1,
+      fingerCurlThreshold: 0.6,
+      requireIndexCurlForFist: true,
 
       neutralX: 0.0,
       neutralY: 0.2,
@@ -85,11 +88,12 @@ const DEFAULT_HAND_PROFILES = {
       gainZ: 9.0,
 
       invertX: true,
-      invertZ: false
+      invertZ: false,
     },
 
     left: {
-      fistThreshold: 0.1,
+      fingerCurlThreshold: 0.6,
+      requireIndexCurlForFist: true,
 
       neutralX: 0.0,
       neutralY: 0.2,
@@ -102,9 +106,9 @@ const DEFAULT_HAND_PROFILES = {
       gainZ: 9.0,
 
       invertX: true,
-      invertZ: false
-    }
-  }
+      invertZ: false,
+    },
+  },
 }
 
 function cloneProfiles(profiles) {
@@ -122,7 +126,7 @@ function mergeProfiles(baseProfiles, overrideProfiles = {}) {
     for (const hand of Object.keys(overrideProfiles[profileName])) {
       merged[profileName][hand] = {
         ...(merged[profileName][hand] ?? {}),
-        ...overrideProfiles[profileName][hand]
+        ...overrideProfiles[profileName][hand],
       }
     }
   }
@@ -135,7 +139,7 @@ function rotateAxesAroundLocalAxis(axis, vectorsToRotate, degrees) {
 
   q.setFromAxisAngle(
     axis.clone().normalize(),
-    THREE.MathUtils.degToRad(degrees)
+    THREE.MathUtils.degToRad(degrees),
   )
 
   for (const vector of vectorsToRotate) {
@@ -151,25 +155,40 @@ export class HandLocomotionGestureSystem {
       profileName: 'quest',
 
       /*
-      These are project-level frame tuning values.
+        These are project-level frame tuning values.
 
-      They intentionally affect:
-        thumbLocal
-        joystickX / joystickZ
-        indicator anchor/orientation
+        They intentionally affect:
+          thumbLocal
+          joystickX / joystickZ
+          indicator anchor/orientation
       */
       frameTiltXDegrees: -20,
       frameTiltZDegreesRight: -20,
       frameTiltZDegreesLeft: 20,
 
+      /*
+        Angle curl calibration.
+
+        curlStartDegrees:
+          Bend angles below this are treated as mostly straight.
+
+        curlFullDegrees:
+          Bend angles at/above this are treated as fully curled.
+
+        These are not activation thresholds.
+        They control how raw bend angle maps into 0..1 curl.
+      */
+      curlStartDegrees: 15,
+      curlFullDegrees: 95,
+
       profiles: DEFAULT_HAND_PROFILES,
 
-      ...options
+      ...options,
     }
 
     this.profiles = mergeProfiles(
       DEFAULT_HAND_PROFILES,
-      options.profiles
+      options.profiles,
     )
 
     this.profileName = this.settings.profileName
@@ -179,7 +198,7 @@ export class HandLocomotionGestureSystem {
 
     this.hands = {
       left: this.createHandState('left'),
-      right: this.createHandState('right')
+      right: this.createHandState('right'),
     }
   }
 
@@ -189,7 +208,22 @@ export class HandLocomotionGestureSystem {
       handedness,
 
       fistActive: false,
+
+      /*
+        Debug/readout only.
+        Activation does not use average fist confidence anymore.
+      */
       fistConfidence: 0,
+
+      indexCurl: 0,
+      middleCurl: 0,
+      ringCurl: 0,
+      pinkyCurl: 0,
+
+      indexCurlPasses: false,
+      middleCurlPasses: false,
+      ringCurlPasses: false,
+      pinkyCurlPasses: false,
 
       profile: this.profile[handedness],
 
@@ -210,19 +244,19 @@ export class HandLocomotionGestureSystem {
       thumbPose: 'neutral',
 
       /*
-      The reusable output:
-        joystickX = thumb left/right
-        joystickZ = thumb forward/back
+        The reusable output:
+          joystickX = thumb left/right
+          joystickZ = thumb forward/back
       */
       joystickX: 0,
       joystickZ: 0,
 
       /*
-      Backward-compatible aliases.
+        Backward-compatible aliases.
       */
       moveIntentX: 0,
       moveIntentZ: 0,
-      turnIntentY: 0
+      turnIntentY: 0,
     }
   }
 
@@ -248,7 +282,7 @@ export class HandLocomotionGestureSystem {
       const jointPositions = this.getJointPositions(
         inputSource.hand,
         frame,
-        referenceSpace
+        referenceSpace,
       )
 
       if (!jointPositions) continue
@@ -256,15 +290,26 @@ export class HandLocomotionGestureSystem {
       this.updateHandState(
         this.hands[handedness],
         handedness,
-        jointPositions
+        jointPositions,
       )
     }
   }
 
   resetHand(state) {
     state.visible = false
+
     state.fistActive = false
     state.fistConfidence = 0
+
+    state.indexCurl = 0
+    state.middleCurl = 0
+    state.ringCurl = 0
+    state.pinkyCurl = 0
+
+    state.indexCurlPasses = false
+    state.middleCurlPasses = false
+    state.ringCurlPasses = false
+    state.pinkyCurlPasses = false
 
     state.thumbPose = 'neutral'
 
@@ -289,7 +334,7 @@ export class HandLocomotionGestureSystem {
       positions[jointName] = new THREE.Vector3(
         pose.transform.position.x,
         pose.transform.position.y,
-        pose.transform.position.z
+        pose.transform.position.z,
       )
     }
 
@@ -312,8 +357,20 @@ export class HandLocomotionGestureSystem {
     state.localZAxis.copy(localFrame.zAxis)
     state.rawForwardAxis.copy(localFrame.rawForwardAxis)
 
-    state.fistConfidence = this.computeFistConfidence(p)
-    state.fistActive = state.fistConfidence > profile.fistThreshold
+    const fingerCurlState = this.computeFingerCurlState(p, profile)
+
+    state.fistConfidence = fingerCurlState.fistConfidence
+    state.fistActive = fingerCurlState.fistActive
+
+    state.indexCurl = fingerCurlState.index
+    state.middleCurl = fingerCurlState.middle
+    state.ringCurl = fingerCurlState.ring
+    state.pinkyCurl = fingerCurlState.pinky
+
+    state.indexCurlPasses = fingerCurlState.indexPasses
+    state.middleCurlPasses = fingerCurlState.middlePasses
+    state.ringCurlPasses = fingerCurlState.ringPasses
+    state.pinkyCurlPasses = fingerCurlState.pinkyPasses
 
     const thumbOffsetWorld = new THREE.Vector3()
       .subVectors(p['thumb-tip'], localFrame.origin)
@@ -321,13 +378,13 @@ export class HandLocomotionGestureSystem {
     state.thumbLocal.set(
       thumbOffsetWorld.dot(localFrame.xAxis) / localFrame.handScale,
       thumbOffsetWorld.dot(localFrame.yAxis) / localFrame.handScale,
-      thumbOffsetWorld.dot(localFrame.zAxis) / localFrame.handScale
+      thumbOffsetWorld.dot(localFrame.zAxis) / localFrame.handScale,
     )
 
     state.neutralThumbLocal.set(
       profile.neutralX,
       profile.neutralY,
-      profile.neutralZ
+      profile.neutralZ,
     )
 
     state.deltaThumbLocal
@@ -356,13 +413,13 @@ export class HandLocomotionGestureSystem {
     x = this.applyDeadzoneAndGain(
       x,
       profile.deadzoneX,
-      profile.gainX
+      profile.gainX,
     )
 
     z = this.applyDeadzoneAndGain(
       z,
       profile.deadzoneZ,
-      profile.gainZ
+      profile.gainZ,
     )
 
     x = THREE.MathUtils.clamp(x, -1, 1)
@@ -382,9 +439,6 @@ export class HandLocomotionGestureSystem {
     const indexDistal =
       p['index-finger-phalanx-distal']
 
-    const ringDistal =
-      p['ring-finger-phalanx-distal']
-
     const indexIntermediate =
       p['index-finger-phalanx-intermediate']
 
@@ -398,40 +452,37 @@ export class HandLocomotionGestureSystem {
       p['thumb-metacarpal']
 
     /*
-    Key solve:
-    local Y = ring distal -> index distal.
-    This follows the curled front row of the fist better than
-    pinky intermediate -> index intermediate.
+      Local Y follows the stable cross-hand span.
     */
     let yAxis = new THREE.Vector3()
       .subVectors(indexIntermediate, pinkyIntermediate)
       .normalize()
 
     /*
-    Raw forward candidate:
-    thumb metacarpal -> middle intermediate.
+      Raw forward candidate:
+      thumb metacarpal -> middle intermediate.
     */
     const rawForwardAxis = new THREE.Vector3()
       .subVectors(middleIntermediate, thumbMetacarpal)
       .normalize()
 
     /*
-    Project raw forward onto the plane perpendicular to Y.
+      Project raw forward onto the plane perpendicular to Y.
     */
     let zAxis = rawForwardAxis
       .clone()
       .sub(
         yAxis
           .clone()
-          .multiplyScalar(rawForwardAxis.dot(yAxis))
+          .multiplyScalar(rawForwardAxis.dot(yAxis)),
       )
       .normalize()
 
     if (zAxis.lengthSq() <= 0.0001) return null
 
     /*
-    Build a clean orthonormal basis.
-    This prevents visual scaling/shearing in systems that use the frame.
+      Build a clean orthonormal basis.
+      This prevents visual scaling/shearing in systems that use the frame.
     */
     let xAxis = new THREE.Vector3()
       .crossVectors(yAxis, zAxis)
@@ -446,16 +497,16 @@ export class HandLocomotionGestureSystem {
       .normalize()
 
     /*
-    Tip the control frame around local X.
+      Tip the control frame around local X.
     */
     rotateAxesAroundLocalAxis(
       xAxis,
       [yAxis, zAxis],
-      this.settings.frameTiltXDegrees
+      this.settings.frameTiltXDegrees,
     )
 
     /*
-    Mirror Z-roll by hand.
+      Mirror Z-roll by hand.
     */
     const zTiltDegrees =
       handedness === 'right'
@@ -465,13 +516,13 @@ export class HandLocomotionGestureSystem {
     rotateAxesAroundLocalAxis(
       zAxis,
       [xAxis, yAxis],
-      zTiltDegrees
+      zTiltDegrees,
     )
 
     const origin = indexDistal.clone()
 
     /*
-    Scale uses the wider stable knuckle span.
+      Scale uses the wider stable knuckle span.
     */
     const handScale =
       indexIntermediate.distanceTo(pinkyIntermediate)
@@ -484,47 +535,174 @@ export class HandLocomotionGestureSystem {
       yAxis,
       zAxis,
       rawForwardAxis,
-      handScale
+      handScale,
     }
   }
 
-  computeFistConfidence(p) {
-    const indexMeta = p['index-finger-metacarpal']
-    const middleMeta = p['middle-finger-metacarpal']
-    const ringMeta = p['ring-finger-metacarpal']
-    const pinkyMeta = p['pinky-finger-metacarpal']
+  computeFingerCurlState(p, profile) {
+    const index = this.computeFingerAngleCurl(p, 'index-finger')
+    const middle = this.computeFingerAngleCurl(p, 'middle-finger')
+    const ring = this.computeFingerAngleCurl(p, 'ring-finger')
+    const pinky = this.computeFingerAngleCurl(p, 'pinky-finger')
 
-    const indexTip = p['index-finger-tip']
-    const middleTip = p['middle-finger-tip']
-    const ringTip = p['ring-finger-tip']
-    const pinkyTip = p['pinky-finger-tip']
+    /*
+      Debug/readout only.
+      This is no longer used for activation.
+    */
+    const fistConfidence =
+      (index + middle + ring + pinky) / 4
 
-    const handScale = indexMeta.distanceTo(pinkyMeta)
+    const defaultThreshold =
+      profile.fingerCurlThreshold ?? 0.35
 
-    if (handScale <= 0.0001) return 0
+    const indexThreshold =
+      profile.indexCurlThreshold ?? defaultThreshold
 
-    const pairs = [
-      [indexTip, indexMeta],
-      [middleTip, middleMeta],
-      [ringTip, ringMeta],
-      [pinkyTip, pinkyMeta]
-    ]
+    const middleThreshold =
+      profile.middleCurlThreshold ?? defaultThreshold
 
-    let curledTotal = 0
+    const ringThreshold =
+      profile.ringCurlThreshold ?? defaultThreshold
 
-    for (const [tip, meta] of pairs) {
-      const d = tip.distanceTo(meta) / handScale
+    const pinkyThreshold =
+      profile.pinkyCurlThreshold ?? defaultThreshold
 
-      const curl = THREE.MathUtils.clamp(
-        1.0 - (d - 1.15) / 0.75,
-        0,
-        1
-      )
+    const requireIndexCurl =
+      profile.requireIndexCurlForFist ?? true
 
-      curledTotal += curl
+    const indexPasses =
+      !requireIndexCurl ||
+      index >= indexThreshold
+
+    const middlePasses =
+      middle >= middleThreshold
+
+    const ringPasses =
+      ring >= ringThreshold
+
+    const pinkyPasses =
+      pinky >= pinkyThreshold
+
+    /*
+      Recommended activation rule:
+
+        No averaging.
+        No weighted compensation.
+        Each required finger must pass.
+
+      This prevents a pointed index finger from being compensated for
+      by curled middle/ring/pinky fingers.
+    */
+    const fistActive =
+      indexPasses &&
+      middlePasses &&
+      ringPasses &&
+      pinkyPasses
+
+    return {
+      fistActive,
+      fistConfidence,
+
+      index,
+      middle,
+      ring,
+      pinky,
+
+      indexPasses,
+      middlePasses,
+      ringPasses,
+      pinkyPasses,
+    }
+  }
+
+  computeFingerAngleCurl(p, fingerPrefix) {
+    const meta =
+      p[`${fingerPrefix}-metacarpal`]
+
+    const proximal =
+      p[`${fingerPrefix}-phalanx-proximal`]
+
+    const intermediate =
+      p[`${fingerPrefix}-phalanx-intermediate`]
+
+    const distal =
+      p[`${fingerPrefix}-phalanx-distal`]
+
+    const tip =
+      p[`${fingerPrefix}-tip`]
+
+    if (!meta || !proximal || !intermediate || !distal || !tip) {
+      return 0
     }
 
-    return curledTotal / pairs.length
+    /*
+      Segment directions from the base of the finger to the tip.
+    */
+    const s0 = new THREE.Vector3()
+      .subVectors(proximal, meta)
+
+    const s1 = new THREE.Vector3()
+      .subVectors(intermediate, proximal)
+
+    const s2 = new THREE.Vector3()
+      .subVectors(distal, intermediate)
+
+    const s3 = new THREE.Vector3()
+      .subVectors(tip, distal)
+
+    if (
+      s0.lengthSq() <= 0.000001 ||
+      s1.lengthSq() <= 0.000001 ||
+      s2.lengthSq() <= 0.000001 ||
+      s3.lengthSq() <= 0.000001
+    ) {
+      return 0
+    }
+
+    s0.normalize()
+    s1.normalize()
+    s2.normalize()
+    s3.normalize()
+
+    /*
+      Bend angles between adjacent bones.
+
+      A straight finger has low bend angles.
+      A curled finger has larger bend angles.
+    */
+    const bend01 = this.angleBetweenSegmentsDegrees(s0, s1)
+    const bend12 = this.angleBetweenSegmentsDegrees(s1, s2)
+    const bend23 = this.angleBetweenSegmentsDegrees(s2, s3)
+
+    /*
+      Weighted bend.
+
+      The middle and distal joints tend to express visible finger curl
+      more consistently than the metacarpal/proximal joint across runtimes,
+      so they get slightly more weight.
+    */
+    const weightedBend =
+      bend01 * 0.25 +
+      bend12 * 0.45 +
+      bend23 * 0.30
+
+    return this.normalizeBendToCurl(weightedBend)
+  }
+
+  angleBetweenSegmentsDegrees(a, b) {
+    const dot = THREE.MathUtils.clamp(a.dot(b), -1, 1)
+    return THREE.MathUtils.radToDeg(Math.acos(dot))
+  }
+
+  normalizeBendToCurl(bendDegrees) {
+    const start = this.settings.curlStartDegrees
+    const full = this.settings.curlFullDegrees
+
+    return THREE.MathUtils.clamp(
+      (bendDegrees - start) / Math.max(0.0001, full - start),
+      0,
+      1,
+    )
   }
 
   applyDeadzoneAndGain(value, deadzone, gain) {

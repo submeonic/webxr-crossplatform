@@ -1,30 +1,33 @@
 import * as THREE from 'three'
 
+const TEMP_TARGET_POSITION = new THREE.Vector3()
+
 export class DesktopOrbitFallback {
   constructor(camera, options = {}) {
     this.camera = camera
 
-    this.target = options.target ?? new THREE.Vector3(0, 1.5, -2)
+    this.target = options.target ?? new THREE.Vector3(0, 0, -2)
+    this.targetOffset = options.targetOffset ?? new THREE.Vector3(0, 1.45, 0)
 
     this.keys = {
       forward: false,
       back: false,
       left: false,
-      right: false
+      right: false,
     }
 
     this.settings = {
       orbitSpeed: options.orbitSpeed ?? 1.5,
       dollySpeed: options.dollySpeed ?? 2.0,
       minDistance: options.minDistance ?? 0.75,
-      maxDistance: options.maxDistance ?? 12.0
+      maxDistance: options.maxDistance ?? 12.0,
     }
 
     this.state = {
       initialized: false,
       angle: 0,
       distance: 5,
-      height: 1.6
+      height: 1.6,
     }
 
     this.handleKeyDown = this.handleKeyDown.bind(this)
@@ -34,8 +37,13 @@ export class DesktopOrbitFallback {
     window.addEventListener('keyup', this.handleKeyUp)
   }
 
-  setTarget(target) {
+  setTarget(target, targetOffset = null) {
     this.target = target
+
+    if (targetOffset) {
+      this.targetOffset.copy(targetOffset)
+    }
+
     this.reset()
   }
 
@@ -86,10 +94,14 @@ export class DesktopOrbitFallback {
 
   getTargetPosition() {
     if (this.target instanceof THREE.Object3D) {
-      return this.target.position
+      this.target.getWorldPosition(TEMP_TARGET_POSITION)
+    } else {
+      TEMP_TARGET_POSITION.copy(this.target)
     }
 
-    return this.target
+    TEMP_TARGET_POSITION.add(this.targetOffset)
+
+    return TEMP_TARGET_POSITION
   }
 
   initialize() {
@@ -101,7 +113,7 @@ export class DesktopOrbitFallback {
     this.state.distance = THREE.MathUtils.clamp(
       offset.length(),
       this.settings.minDistance,
-      this.settings.maxDistance
+      this.settings.maxDistance,
     )
 
     if (this.state.distance < 0.001) {
@@ -122,34 +134,22 @@ export class DesktopOrbitFallback {
 
     const targetPosition = this.getTargetPosition()
 
-    const orbitInput =
-      (this.keys.right ? 1 : 0) -
-      (this.keys.left ? 1 : 0)
+    const orbitInput = (this.keys.right ? 1 : 0) - (this.keys.left ? 1 : 0)
+    const dollyInput = (this.keys.back ? 1 : 0) - (this.keys.forward ? 1 : 0)
 
-    const dollyInput =
-      (this.keys.back ? 1 : 0) -
-      (this.keys.forward ? 1 : 0)
-
-    this.state.angle +=
-      orbitInput *
-      this.settings.orbitSpeed *
-      deltaTime
-
-    this.state.distance +=
-      dollyInput *
-      this.settings.dollySpeed *
-      deltaTime
+    this.state.angle += orbitInput * this.settings.orbitSpeed * deltaTime
+    this.state.distance += dollyInput * this.settings.dollySpeed * deltaTime
 
     this.state.distance = THREE.MathUtils.clamp(
       this.state.distance,
       this.settings.minDistance,
-      this.settings.maxDistance
+      this.settings.maxDistance,
     )
 
     this.camera.position.set(
       targetPosition.x + Math.sin(this.state.angle) * this.state.distance,
       this.state.height,
-      targetPosition.z + Math.cos(this.state.angle) * this.state.distance
+      targetPosition.z + Math.cos(this.state.angle) * this.state.distance,
     )
 
     this.camera.lookAt(targetPosition)

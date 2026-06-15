@@ -1,5 +1,8 @@
 import * as THREE from 'three'
 
+const PRESENTATION_OFFSET = new THREE.Vector3(0, 0, -2)
+const CONTENT_HEIGHT = 1.45
+
 export function createOrbitalViewSimulation(app) {
   const group = new THREE.Group()
   group.name = 'OrbitalViewSimulation'
@@ -8,41 +11,45 @@ export function createOrbitalViewSimulation(app) {
     new THREE.PlaneGeometry(12, 12),
     new THREE.MeshStandardMaterial({
       color: 0x181818,
-      roughness: 0.9
-    })
+      roughness: 0.9,
+    }),
   )
 
   floor.rotation.x = -Math.PI / 2
   floor.position.y = 0
   group.add(floor)
 
-  const target = new THREE.Object3D()
-  target.position.set(0, 1.45, -2)
-  group.add(target)
+  const simulationRoot = new THREE.Group()
+  simulationRoot.name = 'OrbitalViewPresentationRoot'
+  simulationRoot.position.copy(PRESENTATION_OFFSET)
+  group.add(simulationRoot)
+
+  const contentAnchor = new THREE.Object3D()
+  contentAnchor.name = 'OrbitalViewContentAnchor'
+  contentAnchor.position.set(0, CONTENT_HEIGHT, 0)
+  simulationRoot.add(contentAnchor)
 
   const core = new THREE.Mesh(
     new THREE.SphereGeometry(0.16, 32, 32),
     new THREE.MeshStandardMaterial({
       color: 0xecebe2,
       roughness: 0.35,
-      metalness: 0.1
-    })
+      metalness: 0.1,
+    }),
   )
 
-  core.position.copy(target.position)
-  group.add(core)
+  contentAnchor.add(core)
 
   const orbitGroup = new THREE.Group()
-  orbitGroup.position.copy(target.position)
-  group.add(orbitGroup)
+  contentAnchor.add(orbitGroup)
 
   const orbitA = new THREE.Mesh(
     new THREE.TorusGeometry(0.72, 0.012, 12, 128),
     new THREE.MeshStandardMaterial({
       color: 0x00b5d8,
       roughness: 0.3,
-      metalness: 0.1
-    })
+      metalness: 0.1,
+    }),
   )
 
   orbitA.rotation.x = Math.PI / 2
@@ -53,8 +60,8 @@ export function createOrbitalViewSimulation(app) {
     new THREE.MeshStandardMaterial({
       color: 0xa6a6a0,
       roughness: 0.3,
-      metalness: 0.1
-    })
+      metalness: 0.1,
+    }),
   )
 
   orbitB.rotation.x = Math.PI / 2
@@ -66,8 +73,8 @@ export function createOrbitalViewSimulation(app) {
     new THREE.MeshStandardMaterial({
       color: 0x00b5d8,
       emissive: 0x003344,
-      roughness: 0.2
-    })
+      roughness: 0.2,
+    }),
   )
 
   orbitGroup.add(electron)
@@ -79,7 +86,9 @@ export function createOrbitalViewSimulation(app) {
   return {
     name: 'orbital',
     group,
-    orbitTarget: target,
+    simulationRoot,
+    contentAnchor,
+    orbitTarget: contentAnchor,
 
     enter() {
       group.visible = true
@@ -89,6 +98,15 @@ export function createOrbitalViewSimulation(app) {
       group.visible = false
     },
 
+    /*
+      Reserved for orbital-specific interactions.
+      Example future uses:
+      - pinch orbit to scrub electron position
+      - grab and rotate orbital
+      - switch orbital type with hand gesture
+    */
+    handleInput() {},
+
     update(deltaTime) {
       t += deltaTime
 
@@ -97,7 +115,7 @@ export function createOrbitalViewSimulation(app) {
       electron.position.set(
         Math.cos(t * 1.4) * 0.72,
         Math.sin(t * 1.4) * 0.18,
-        Math.sin(t * 1.4) * 0.72
+        Math.sin(t * 1.4) * 0.72,
       )
     },
 
@@ -118,6 +136,6 @@ export function createOrbitalViewSimulation(app) {
 
       electron.geometry.dispose()
       electron.material.dispose()
-    }
+    },
   }
 }
