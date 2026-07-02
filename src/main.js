@@ -5,7 +5,7 @@ import { ScrollSimulationController } from './systems/navigation/ScrollSimulatio
 
 import { createIntroSphereSimulation } from './simulations/intro-sphere/createIntroSphereSimulation.js'
 import { createSOrbitalSimulation } from './simulations/s-orbitals/createSOrbitalSimulation.js'
-import { createOrbitalViewSimulation } from './simulations/orbital-view/createOrbitalViewSimulation.js'
+import { createPOrbitalSimulation } from './simulations/p-orbitals/createPOrbitalSimulation.js'
 
 function initializeFadeInAnimations() {
   const elements = document.querySelectorAll('.fade-scroll')
@@ -41,7 +41,7 @@ const app = createWebXRApp({
 const simulations = {
   'intro-sphere': createIntroSphereSimulation(app),
   's-orbitals': createSOrbitalSimulation(app),
-  'orbital-view': createOrbitalViewSimulation(app),
+  'p-orbitals': createPOrbitalSimulation(app),
 }
 
 for (const simulation of Object.values(simulations)) {

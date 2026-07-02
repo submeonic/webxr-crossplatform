@@ -3,9 +3,9 @@ import * as THREE from 'three'
 const PRESENTATION_OFFSET = new THREE.Vector3(0, 0, -2)
 const CONTENT_HEIGHT = 1.45
 
-export function createOrbitalViewSimulation(app) {
+export function createPOrbitalSimulation(app) {
   const group = new THREE.Group()
-  group.name = 'OrbitalViewSimulation'
+  group.name = 'p-orbitals'
 
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(12, 12),
@@ -20,12 +20,12 @@ export function createOrbitalViewSimulation(app) {
   group.add(floor)
 
   const simulationRoot = new THREE.Group()
-  simulationRoot.name = 'OrbitalViewPresentationRoot'
+  simulationRoot.name = 'POrbitalPresentationRoot'
   simulationRoot.position.copy(PRESENTATION_OFFSET)
   group.add(simulationRoot)
 
   const contentAnchor = new THREE.Object3D()
-  contentAnchor.name = 'OrbitalViewContentAnchor'
+  contentAnchor.name = 'POrbitalContentAnchor'
   contentAnchor.position.set(0, CONTENT_HEIGHT, 0)
   simulationRoot.add(contentAnchor)
 
