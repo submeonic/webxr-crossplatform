@@ -121,7 +121,7 @@ export function createWebXRApp(options = {}) {
   })
 
   const handLocomotionIndicator = new HandLocomotionIndicator(playerRig, {
-    modelPath: '/models/dpad_wedge.glb',
+    modelPath: `${import.meta.env.BASE_URL}models/dpad_wedge.glb`,
 
     dpadDiameter: 0.07,
 
