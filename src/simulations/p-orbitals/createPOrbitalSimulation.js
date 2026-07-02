@@ -5,7 +5,7 @@ const CONTENT_HEIGHT = 1.45
 
 export function createPOrbitalSimulation(app) {
   const group = new THREE.Group()
-  group.name = 'p-orbitals'
+  group.name = 'POrbitalSimulation'
 
   const floor = new THREE.Mesh(
     new THREE.PlaneGeometry(12, 12),
@@ -80,7 +80,7 @@ export function createPOrbitalSimulation(app) {
   app.scene.add(group)
 
   return {
-    name: 'orbital-view',
+    name: 'p-orbitals',
     group,
     simulationRoot,
     contentAnchor,
