@@ -1,11 +1,11 @@
 import './style.css'
 
 import { createWebXRApp } from './core/createWebXRApp.js'
-import { ScrollSimulationController } from './core/ScrollSimulationController.js'
+import { ScrollSimulationController } from './systems/navigation/ScrollSimulationController.js'
 
-import { createIntroSphereSimulation } from './simulations/introSphere.js'
-import { createShellRegionSimulation } from './simulations/shellRegion.js'
-import { createOrbitalViewSimulation } from './simulations/orbitalView.js'
+import { createIntroSphereSimulation } from './simulations/intro-sphere/createIntroSphereSimulation.js'
+import { createSOrbitalSimulation } from './simulations/s-orbitals/createSOrbitalSimulation.js'
+import { createOrbitalViewSimulation } from './simulations/orbital-view/createOrbitalViewSimulation.js'
 
 function initializeFadeInAnimations() {
   const elements = document.querySelectorAll('.fade-scroll')
@@ -32,7 +32,6 @@ const xrButtonContainer = document.getElementById('xr-button-container')
 const app = createWebXRApp({
   container: canvasContainer,
   xrButtonContainer,
-
   showHandModels: true,
   showXRDebugPanel: false,
   showHandDebugJoints: false,
@@ -40,9 +39,9 @@ const app = createWebXRApp({
 })
 
 const simulations = {
-  intro: createIntroSphereSimulation(app),
-  shell: createShellRegionSimulation(app),
-  orbital: createOrbitalViewSimulation(app),
+  'intro-sphere': createIntroSphereSimulation(app),
+  's-orbitals': createSOrbitalSimulation(app),
+  'orbital-view': createOrbitalViewSimulation(app),
 }
 
 for (const simulation of Object.values(simulations)) {
@@ -53,10 +52,9 @@ const scrollSimulationController = new ScrollSimulationController({
   app,
   simulations,
   sectionSelector: '[data-simulation]',
-  initialSimulationName: 'intro',
+  initialSimulationName: 'intro-sphere',
   logChanges: true,
 })
 
 scrollSimulationController.start()
-
 app.start()

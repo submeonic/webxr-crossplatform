@@ -4,14 +4,13 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
 
-import { DesktopOrbitFallback } from './DesktopOrbitFallback.js'
-
-import { HandDebugSystem } from '../systems/HandDebugSystem.js'
-import { HandLocomotionGestureSystem } from '../systems/HandLocomotionGestureSystem.js'
-import { HandLocomotionSystem } from '../systems/HandLocomotionSystem.js'
-import { HandLocomotionIndicator } from '../systems/HandLocomotionIndicator.js'
-import { HandInteractionSystem } from '../systems/HandInteractionSystem.js'
-import { XRDebugPanel } from '../systems/XRDebugPanel.js'
+import { DesktopOrbitFallback } from '../systems/navigation/DesktopOrbitFallback.js'
+import { HandDebugSystem } from '../systems/debug/HandDebugSystem.js'
+import { XRDebugPanel } from '../systems/debug/XRDebugPanel.js'
+import { HandLocomotionGestureSystem } from '../systems/locomotion/HandLocomotionGestureSystem.js'
+import { HandLocomotionSystem } from '../systems/locomotion/HandLocomotionSystem.js'
+import { HandLocomotionIndicator } from '../systems/locomotion/HandLocomotionIndicator.js'
+import { HandInteractionSystem } from '../systems/interaction/HandInteractionSystem.js'
 
 export function createWebXRApp(options = {}) {
   const container = options.container

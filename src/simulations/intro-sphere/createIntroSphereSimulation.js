@@ -38,7 +38,6 @@ export function createIntroSphereSimulation(app) {
       metalness: 0.05,
     }),
   )
-
   contentAnchor.add(sphere)
 
   const ring = new THREE.Mesh(
@@ -49,7 +48,6 @@ export function createIntroSphereSimulation(app) {
       metalness: 0.1,
     }),
   )
-
   ring.rotation.x = Math.PI / 2
   contentAnchor.add(ring)
 
@@ -64,14 +62,14 @@ export function createIntroSphereSimulation(app) {
     const right = interactionState.right
     const left = interactionState.left
 
-    if (right?.pinchStarted) {
+    if (right?.pinchStarted && right?.pinchPosition) {
       return {
         handedness: 'right',
         hand: right,
       }
     }
 
-    if (left?.pinchStarted) {
+    if (left?.pinchStarted && left?.pinchPosition) {
       return {
         handedness: 'left',
         hand: left,
@@ -89,14 +87,12 @@ export function createIntroSphereSimulation(app) {
   app.scene.add(group)
 
   return {
-    name: 'intro',
+    name: 'intro-sphere',
     group,
     simulationRoot,
     contentAnchor,
-
     desktopOrbitTarget: simulationRoot,
     desktopOrbitOffset: new THREE.Vector3(0, CONTENT_HEIGHT, 0),
-
     orbitTarget: contentAnchor,
 
     enter() {
@@ -120,22 +116,23 @@ export function createIntroSphereSimulation(app) {
         }
       }
 
-      if (!scaleInteraction.active) return
+      if (!scaleInteraction.active) {
+        return
+      }
 
-      const activeHand =
-        interactionState[scaleInteraction.handedness]
+      const activeHand = interactionState[scaleInteraction.handedness]
 
       if (
         !activeHand ||
         activeHand.pinchEnded ||
-        !activeHand.pinchActive
+        !activeHand.pinchActive ||
+        !activeHand.pinchPosition
       ) {
         endScaleInteraction()
         return
       }
 
-      const dragY =
-        activeHand.pinchPosition.y - scaleInteraction.startY
+      const dragY = activeHand.pinchPosition.y - scaleInteraction.startY
 
       const nextScale = THREE.MathUtils.clamp(
         scaleInteraction.startScale + dragY * 1.5,
