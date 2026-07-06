@@ -6,6 +6,7 @@ import { generate1sSamples } from './data/sOrbitalSamplers.js'
 import { createFresnelShellMaterial } from './rendering/createFresnelShellMaterial.js'
 import { createOrbitalPointCloud } from './rendering/createOrbitalPointCloud.js'
 import { createRadialGraphPanel } from './ui/createRadialGraphPanel.js'
+import { createDesktopRadialGraph } from './ui/createDesktopRadialGraph.js'
 
 const PRESENTATION_OFFSET = new THREE.Vector3(0, 0, -2)
 const CONTENT_HEIGHT = 1.45
@@ -106,11 +107,8 @@ export function createSOrbitalSimulation(app) {
 
   const graphPanel = createRadialGraphPanel({
     samples,
-    rMaxA0: R_MAX_A0,
-    bins: 70,
     widthMeters: 1.5,
     heightMeters: 0.84,
-    title: 'Hydrogen 1s orbital',
   })
 
   /*
@@ -129,6 +127,43 @@ export function createSOrbitalSimulation(app) {
     outerRadiusA0: INITIAL_SHELL_OUTER_RADIUS_A0,
     innerRadiusA0: INITIAL_SHELL_OUTER_RADIUS_A0 - SHELL_THICKNESS_A0,
     highlightedCount: 0,
+  }
+
+  let radialScaleControl = null
+
+  const desktopGraph = createDesktopRadialGraph({
+    containerId: 's-orbitals-desktop-graph',
+    samples,
+    minRadiusA0: SHELL_THICKNESS_A0,
+    maxRadiusA0: R_MAX_A0,
+
+    onRadiusChange(nextRadiusA0) {
+      if (!radialScaleControl) {
+        return
+      }
+
+      radialScaleControl.setValue(
+        nextRadiusA0,
+        'desktop-graph-drag',
+      )
+    },
+  })
+
+  function getGraphState() {
+    return {
+      orbitalType: orbitalState.orbitalType,
+      innerRadiusA0: shellState.innerRadiusA0,
+      outerRadiusA0: shellState.outerRadiusA0,
+      highlightedCount: shellState.highlightedCount,
+      totalCount: ELECTRON_COUNT,
+    }
+  }
+
+  function updateGraphs() {
+    const graphState = getGraphState()
+
+    graphPanel.update(graphState)
+    desktopGraph.update(graphState)
   }
 
   function setShellOuterRadiusA0(nextOuterRadiusA0) {
@@ -159,16 +194,10 @@ export function createSOrbitalSimulation(app) {
       shellState.outerRadiusA0,
     )
 
-    graphPanel.update({
-      orbitalType: orbitalState.orbitalType,
-      innerRadiusA0: shellState.innerRadiusA0,
-      outerRadiusA0: shellState.outerRadiusA0,
-      highlightedCount: shellState.highlightedCount,
-      totalCount: ELECTRON_COUNT,
-    })
+    updateGraphs()
   }
 
-  const radialScaleControl = new RadialScaleControlSystem({
+  radialScaleControl = new RadialScaleControlSystem({
     initialValue: shellState.outerRadiusA0,
     minValue: SHELL_THICKNESS_A0,
     maxValue: R_MAX_A0,
@@ -202,14 +231,7 @@ export function createSOrbitalSimulation(app) {
     }
 
     orbitalState.orbitalType = nextOrbitalType
-
-    graphPanel.update({
-      orbitalType: orbitalState.orbitalType,
-      innerRadiusA0: shellState.innerRadiusA0,
-      outerRadiusA0: shellState.outerRadiusA0,
-      highlightedCount: shellState.highlightedCount,
-      totalCount: ELECTRON_COUNT,
-    })
+    updateGraphs()
 
     return orbitalState.orbitalType
   }
@@ -236,12 +258,23 @@ export function createSOrbitalSimulation(app) {
       radialScaleControl.reset()
     },
 
-    handleInput(interactionState) {
+    handleInput(interactionState, context = {}) {
+      if (!context.isXR) {
+        return
+      }
+
       radialScaleControl.update(interactionState)
     },
 
-    update() {
-      updateGraphBillboard()
+    update(deltaTime, context = {}) {
+      const isXR = Boolean(context.isXR)
+
+      graphPanel.setVisible(isXR)
+      desktopGraph.setVisible(!isXR)
+
+      if (isXR) {
+        updateGraphBillboard()
+      }
     },
 
     getOrbitalType() {
@@ -255,7 +288,10 @@ export function createSOrbitalSimulation(app) {
     },
 
     setShellOuterRadiusA0(nextOuterRadiusA0) {
-      return radialScaleControl.setValue(nextOuterRadiusA0)
+      return radialScaleControl.setValue(
+        nextOuterRadiusA0,
+        'external-set',
+      )
     },
 
     dispose() {
@@ -270,6 +306,7 @@ export function createSOrbitalSimulation(app) {
 
       pointCloud.dispose()
       graphPanel.dispose()
+      desktopGraph.dispose()
     },
   }
 }
