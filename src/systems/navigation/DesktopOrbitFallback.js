@@ -21,12 +21,13 @@ export class DesktopOrbitFallback {
       dollySpeed: options.dollySpeed ?? 2.0,
       minDistance: options.minDistance ?? 0.75,
       maxDistance: options.maxDistance ?? 12.0,
+      defaultDistance: options.defaultDistance ?? 2,
     }
 
     this.state = {
       initialized: false,
       angle: 0,
-      distance: 5,
+      distance: this.settings.defaultDistance,
       height: 1.6,
     }
 
@@ -110,14 +111,18 @@ export class DesktopOrbitFallback {
     const offset = this.camera.position.clone().sub(targetPosition)
     offset.y = 0
 
+    const derivedDistance = offset.length()
+
+    const startingDistance =
+      this.settings.defaultDistance ?? derivedDistance
+
     this.state.distance = THREE.MathUtils.clamp(
-      offset.length(),
+      startingDistance,
       this.settings.minDistance,
       this.settings.maxDistance,
     )
 
-    if (this.state.distance < 0.001) {
-      this.state.distance = 3
+    if (derivedDistance < 0.001) {
       this.state.angle = 0
     } else {
       this.state.angle = Math.atan2(offset.x, offset.z)

@@ -263,12 +263,8 @@ body {
 
   margin: 1.5rem 0 0;
 
-  /* Match the 3D viewport style */
-  border: 1px solid var(--line);
-  border-radius: 0;
   overflow: hidden;
 
-  background: var(--canvasBg);
   box-shadow: none;
 
   touch-action: none;

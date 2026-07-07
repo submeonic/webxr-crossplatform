@@ -118,7 +118,6 @@ export function drawRadialGraph(ctx, {
 
   ctx.clearRect(0, 0, width, height)
 
-  drawBacking(ctx, width, height)
   drawTopInfo(ctx, safeState, width)
   drawAxes(ctx, width, height)
   drawAxisLabels(ctx, width, height)
@@ -128,10 +127,6 @@ export function drawRadialGraph(ctx, {
   drawGraphLabel(ctx, safeState, xScale)
 }
 
-function drawBacking(ctx, width, height) {
-  ctx.fillStyle = COLORS.background
-  ctx.fillRect(0, 0, width, height)
-}
 
 function drawTopInfo(ctx, state, width) {
   const radiusA0 = state.outerRadiusA0
