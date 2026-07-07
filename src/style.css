@@ -25,6 +25,11 @@
   --muted: rgba(255, 255, 255, 0.65);
   --canvasBg: #0d0d1a;
   --line: rgba(255, 255, 255, 0.14);
+
+  --page-gutter: clamp(1rem, 4vw, 4rem);
+  --viewer-min-width: 420px;
+  --text-column-min: 300px;
+  --min-layout-width: 760px;
 }
 
 *,
@@ -42,7 +47,7 @@ body {
 #body_parent {
   background-color: var(--bg);
   padding-bottom: 50px;
-  overflow-x: hidden;
+  overflow-x: auto;
   color: var(--text);
   font-family: "Bai Jamjuree", sans-serif;
 }
@@ -52,7 +57,7 @@ body {
   min-height: 100vh;
 }
 
-/* Back button: matches the live LearnQM style */
+/* Back button */
 .backButton {
   position: fixed;
   top: 10px;
@@ -82,9 +87,10 @@ body {
   text-decoration: none;
 }
 
-/* Title row: live-site typography, previous layout feel */
+/* Title row */
 .title-row {
-  max-width: 940px;
+  width: min(940px, calc(100vw - 4rem));
+  min-width: min(var(--min-layout-width), 100vw);
   margin: 0 auto;
   padding-top: 260px;
   padding-left: 2rem;
@@ -124,20 +130,35 @@ body {
   text-align: center;
 }
 
-/* Main two-column layout */
+/* Main two-column lesson workspace */
 .content {
-  display: grid;
-  grid-template-columns: minmax(320px, 38vw) 1fr;
-  gap: 4rem;
+  position: relative;
+  isolation: isolate;
 
-  width: min(1500px, calc(100vw - 8rem));
+  display: grid;
+  grid-template-columns:
+    minmax(var(--text-column-min), min(42vw, 560px))
+    minmax(var(--viewer-min-width), 1fr);
+  gap: clamp(2rem, 4vw, 4rem);
+
+  width: min(1500px, calc(100vw - (var(--page-gutter) * 2)));
+  min-width: var(--min-layout-width);
+
   margin: 0 auto;
   padding-bottom: 300px;
 }
 
 .lesson-content {
+  position: relative;
+  z-index: 3;
   min-width: 0;
   padding-bottom: 12rem;
+}
+
+.simulation-column {
+  position: relative;
+  z-index: 1;
+  min-width: 0;
 }
 
 /* Larger spacing so scroll-based simulation switching feels deliberate */
@@ -147,7 +168,7 @@ body {
 
   opacity: 0;
   transform: translateY(50px);
-  transition: all 0.3s ease-out;
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 }
 
 .lesson-section:first-child {
@@ -231,15 +252,49 @@ body {
   transform: translateY(0px) !important;
 }
 
-/* Sticky WebXR viewer */
-.simulation-column {
+/* Desktop radial graph */
+.desktop-radial-graph {
   position: relative;
-  min-width: 0;
+  z-index: 5;
+
+  width: 100%;
+  max-width: 640px;
+  height: clamp(280px, 32vw, 512px);
+
+  margin: 1.5rem 0 0;
+
+  /* Match the 3D viewport style */
+  border: 1px solid var(--line);
+  border-radius: 0;
+  overflow: hidden;
+
+  background: var(--canvasBg);
+  box-shadow: none;
+
+  touch-action: none;
+  contain: layout paint;
 }
 
+.desktop-radial-graph canvas {
+  position: absolute;
+  inset: 0;
+
+  display: block;
+  width: 100%;
+  height: 100%;
+
+  cursor: ew-resize;
+}
+
+.desktop-radial-graph.is-hidden {
+  display: none;
+}
+
+/* Sticky WebXR viewer */
 .simulation-sticky {
   position: sticky;
   top: 10vh;
+  z-index: 1;
 
   height: 80vh;
 
@@ -270,6 +325,9 @@ body {
 }
 
 #xr-canvas-container {
+  position: relative;
+  z-index: 1;
+
   width: 100%;
   height: min(58vh, 600px);
 
@@ -380,52 +438,84 @@ body {
   min-height: 400px;
   opacity: 0;
   transform: translateY(50px);
-  transition: all 0.3s ease-out;
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
 }
 
-/* Responsive */
-@media (max-width: 992px) {
+/*
+Responsive behavior:
+- Never collapse to one column.
+- Keep the lesson text and active simulation viewport paired.
+- On very narrow screens, preserve the two-column layout and allow horizontal scrolling.
+*/
+
+/* Compact two-column mode */
+@media (max-width: 1100px) {
+  :root {
+    --page-gutter: 1rem;
+    --viewer-min-width: 360px;
+    --text-column-min: 280px;
+  }
+
   .content {
-    display: flex;
-    flex-direction: column;
-
-    width: min(900px, calc(100vw - 4rem));
+    grid-template-columns: minmax(280px, 44vw) minmax(360px, 1fr);
     gap: 2rem;
-
-    padding-bottom: 150px;
+    width: max(var(--min-layout-width), calc(100vw - 2rem));
+    padding-bottom: 180px;
   }
 
   .title-row {
+    width: max(var(--min-layout-width), calc(100vw - 2rem));
     padding-top: 180px;
   }
 
   .simulation-sticky {
-    position: relative;
-    top: 0;
-    height: auto;
-    min-height: 70vh;
+    top: 1rem;
+    height: calc(100vh - 2rem);
   }
 
   #xr-canvas-container {
-    height: 58vh;
+    height: min(56vh, 520px);
   }
 
   .lesson-section {
-    min-height: auto;
-    margin-top: 180px;
+    min-height: 110vh;
+    margin-top: 220px;
   }
 
   .lesson-section:first-child {
-    margin-top: 180px;
+    margin-top: 220px;
+  }
+
+  .lesson-section:last-child {
+    margin-bottom: 240px;
+  }
+
+  .desktop-radial-graph {
+    height: clamp(260px, 38vw, 440px);
   }
 }
 
-@media (max-width: 450px) {
+/* Tight two-column mode for narrow screens */
+@media (max-width: 760px) {
+  #body_parent {
+    overflow-x: auto;
+  }
+
   .content {
-    width: calc(100vw - 2rem);
+    display: grid;
+    grid-template-columns: 320px 420px;
+    gap: 1rem;
+
+    width: var(--min-layout-width);
+    min-width: var(--min-layout-width);
+
+    padding-bottom: 160px;
   }
 
   .title-row {
+    width: var(--min-layout-width);
+    min-width: var(--min-layout-width);
+
     padding-top: 120px;
     padding-left: 1rem;
     padding-right: 1rem;
@@ -442,11 +532,69 @@ body {
   }
 
   .lesson-section {
-    margin-top: 120px;
+    min-height: 115vh;
+    margin-top: 180px;
   }
 
   .lesson-section:first-child {
-    margin-top: 120px;
+    margin-top: 180px;
+  }
+
+  .lesson-section:last-child {
+    margin-bottom: 220px;
+  }
+
+  .lesson-section h2 {
+    font-size: 30px;
+    line-height: 48px;
+  }
+
+  .lesson-section p {
+    font-size: 15px;
+    line-height: 23px;
+  }
+
+  .simulation-column {
+    position: relative;
+    z-index: 1;
+  }
+
+  .simulation-sticky {
+    position: sticky;
+    top: 1rem;
+
+    height: calc(100vh - 2rem);
+    min-height: 520px;
+
+    justify-content: center;
+  }
+
+  #xr-canvas-container {
+    height: min(52vh, 420px);
+    min-height: 320px;
+  }
+
+  .desktop-radial-graph {
+    height: 300px;
+  }
+
+  .viewer-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+}
+
+/* Tiny-screen typography only. Layout stays two-column. */
+@media (max-width: 450px) {
+  .title-row h1 {
+    font-size: 30px;
+    line-height: 44px;
+  }
+
+  .title-row p {
+    font-size: 15px;
+    line-height: 23px;
   }
 
   .lesson-section h2 {
@@ -455,45 +603,7 @@ body {
   }
 
   .lesson-section p {
-    font-size: 16px;
-    line-height: 24px;
-  }
-
-  #xr-canvas-container {
-    height: 400px;
-  }
-  
-  .desktop-radial-graph {
-    position: relative;
-    width: 100%;
-    max-width: 640px;
-    aspect-ratio: 5 / 4;
-    margin: 1.5rem 0 0;
-    border: 1px solid rgba(255, 255, 255, 0.18);
-    border-radius: 18px;
-    overflow: hidden;
-    background: rgba(0, 0, 0, 0.22);
-    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.28);
-    touch-action: none;
-    contain: layout paint;
-  }
-
-  .desktop-radial-graph canvas {
-    position: absolute;
-    inset: 0;
-    display: block;
-    width: 100%;
-    height: 100%;
-    cursor: ew-resize;
-  }
-
-  .desktop-radial-graph.is-hidden {
-    display: none;
-  }
-
-  .viewer-label {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
+    font-size: 15px;
+    line-height: 23px;
   }
 }

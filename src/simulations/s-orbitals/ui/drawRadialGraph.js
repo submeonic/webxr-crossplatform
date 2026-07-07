@@ -9,6 +9,20 @@ const GRAPH_TOP = 104
 const GRAPH_BOTTOM_PADDING = 58
 const GRAPH_X_MAX = 600
 
+const FONT_DISPLAY = '"Agency FB", Impact, "Arial Narrow", sans-serif'
+const FONT_BODY = '"Bai Jamjuree", Arial, Helvetica, sans-serif'
+
+const COLORS = {
+  background: '#121212',
+  brand: '#fff7ae',
+  text: '#ffffff',
+  mutedText: 'rgba(255, 255, 255, 0.68)',
+  faintText: 'rgba(255, 255, 255, 0.48)',
+  line: 'rgba(255, 255, 255, 0.14)',
+  axis: 'rgba(255, 255, 255, 0.86)',
+  selection: '#ffffff',
+}
+
 /*
 Original graph math:
 graph_1s(i) = 4 / 2500 * i^2 * exp(-i / 50) * exp(-i / 50)
@@ -104,7 +118,7 @@ export function drawRadialGraph(ctx, {
 
   ctx.clearRect(0, 0, width, height)
 
-  drawTransparentBacking(ctx, width, height)
+  drawBacking(ctx, width, height)
   drawTopInfo(ctx, safeState, width)
   drawAxes(ctx, width, height)
   drawAxisLabels(ctx, width, height)
@@ -114,8 +128,8 @@ export function drawRadialGraph(ctx, {
   drawGraphLabel(ctx, safeState, xScale)
 }
 
-function drawTransparentBacking(ctx, width, height) {
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.05)'
+function drawBacking(ctx, width, height) {
+  ctx.fillStyle = COLORS.background
   ctx.fillRect(0, 0, width, height)
 }
 
@@ -127,27 +141,33 @@ function drawTopInfo(ctx, state, width) {
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.98)'
-  ctx.font = 'bold 28px Arial, Helvetica, sans-serif'
-  ctx.fillText(`${state.highlightedCount}`, centerX, 24)
+  /*
+  Header-style number: matches the site's display/title feel.
+  */
+  ctx.fillStyle = COLORS.brand
+  ctx.font = `bold 34px ${FONT_DISPLAY}`
+  ctx.fillText(`${state.highlightedCount}`, centerX, 32)
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.8)'
-  ctx.font = 'bold 14px Arial, Helvetica, sans-serif'
-  ctx.fillText('measurements in selected region', centerX, 44)
+  /*
+  Body-style subtitle.
+  */
+  ctx.fillStyle = COLORS.mutedText
+  ctx.font = `600 14px ${FONT_BODY}`
+  ctx.fillText('measurements in selected region', centerX, 53)
 
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.96)'
-  ctx.font = 'bold 14px Arial, Helvetica, sans-serif'
+  ctx.fillStyle = COLORS.text
+  ctx.font = `600 14px ${FONT_BODY}`
   ctx.fillText(
     `radius: ${radiusAngstrom.toFixed(3)} Angstrom`,
     centerX,
-    68,
+    75,
   )
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.18)'
+  ctx.strokeStyle = COLORS.line
   ctx.lineWidth = 1
   ctx.beginPath()
-  ctx.moveTo(GRAPH_LEFT, 80)
-  ctx.lineTo(width - GRAPH_RIGHT_PADDING, 80)
+  ctx.moveTo(GRAPH_LEFT, 88)
+  ctx.lineTo(width - GRAPH_RIGHT_PADDING, 88)
   ctx.stroke()
 }
 
@@ -155,8 +175,8 @@ function drawAxes(ctx, width, height) {
   const axisX = GRAPH_LEFT
   const axisY = height - GRAPH_BOTTOM_PADDING
 
-  ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)'
-  ctx.lineWidth = 1.5
+  ctx.strokeStyle = COLORS.axis
+  ctx.lineWidth = 1.25
 
   ctx.beginPath()
   ctx.moveTo(axisX, axisY)
@@ -170,8 +190,8 @@ function drawAxes(ctx, width, height) {
 }
 
 function drawAxisLabels(ctx, width, height) {
-  ctx.fillStyle = 'rgba(255, 255, 255, 0.96)'
-  ctx.font = 'bold 16px Arial, Helvetica, sans-serif'
+  ctx.fillStyle = COLORS.text
+  ctx.font = `600 15px ${FONT_BODY}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
 
@@ -187,7 +207,7 @@ function drawAxisLabels(ctx, width, height) {
 }
 
 function draw1sBars(ctx, dataset, xScale, yScale, height) {
-  ctx.strokeStyle = '#FFF7AE'
+  ctx.strokeStyle = COLORS.brand
   ctx.lineWidth = 1
 
   for (const d of dataset) {
@@ -211,15 +231,15 @@ function drawBohrRadiusMarker(ctx, peakPoint, xScale, yScale, height) {
   const yTop = yScale(peakPoint.y)
   const yBottom = height - GRAPH_BOTTOM_PADDING
 
-  ctx.strokeStyle = 'white'
+  ctx.strokeStyle = COLORS.text
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.moveTo(x, yTop)
   ctx.lineTo(x, yBottom)
   ctx.stroke()
 
-  ctx.fillStyle = 'white'
-  ctx.font = 'bold 16px Arial, Helvetica, sans-serif'
+  ctx.fillStyle = COLORS.text
+  ctx.font = `600 15px ${FONT_BODY}`
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
   ctx.fillText('Bohr Radius', x + 14, height / 2 + 12)
@@ -238,22 +258,33 @@ function drawSelectionLine(ctx, state, yScale, height, width) {
   const yTop = yScale(yValue)
   const yBottom = height - GRAPH_BOTTOM_PADDING
 
-  ctx.strokeStyle = 'white'
+  /*
+  White vertical shell indicator line.
+  */
+  ctx.strokeStyle = COLORS.selection
   ctx.lineWidth = 3
   ctx.beginPath()
   ctx.moveTo(x, yBottom)
   ctx.lineTo(x, yTop)
   ctx.stroke()
+
+  /*
+  Small draggable handle cue for desktop without making it look like a modern UI widget.
+  */
+  ctx.fillStyle = COLORS.selection
+  ctx.beginPath()
+  ctx.arc(x, yTop, 4, 0, Math.PI * 2)
+  ctx.fill()
 }
 
 function drawGraphLabel(ctx, state, xScale) {
   const orbitalLabel = state.orbitalType ?? '1s'
 
-  ctx.fillStyle = '#FFF7AE'
+  ctx.fillStyle = COLORS.brand
   ctx.fillRect(xScale(500), 112, 16, 16)
 
-  ctx.fillStyle = 'white'
-  ctx.font = 'bold 16px Arial, Helvetica, sans-serif'
+  ctx.fillStyle = COLORS.text
+  ctx.font = `600 16px ${FONT_BODY}`
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
   ctx.fillText(orbitalLabel, xScale(530), 126)
