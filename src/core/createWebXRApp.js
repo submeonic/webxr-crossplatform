@@ -4,7 +4,8 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
 
-import { DesktopOrbitFallback } from '../systems/navigation/DesktopOrbitFallback.js'
+import { OrbitCameraController } from '../systems/navigation/OrbitCameraController.js'
+import { WebInteractionController } from '../systems/navigation/WebInteractionController.js'
 import { HandDebugSystem } from '../systems/debug/HandDebugSystem.js'
 import { XRDebugPanel } from '../systems/debug/XRDebugPanel.js'
 import { HandLocomotionGestureSystem } from '../systems/locomotion/HandLocomotionGestureSystem.js'
@@ -15,6 +16,8 @@ import { HandInteractionSystem } from '../systems/interaction/HandInteractionSys
 export function createWebXRApp(options = {}) {
   const container = options.container
   const xrButtonContainer = options.xrButtonContainer
+  const viewerStatus = options.viewerStatus ?? null
+  const xrUiRoot = options.xrUiRoot ?? document.documentElement
 
   if (!container) {
     throw new Error('createWebXRApp requires options.container')
@@ -53,6 +56,61 @@ export function createWebXRApp(options = {}) {
   })
 
   xrButtonContainer.appendChild(xrButton)
+
+  function setXRAvailabilityState(state) {
+    const isChecking = state === 'checking'
+    const isAvailable = state === 'available'
+    const isUnavailable = state === 'unavailable'
+
+    xrUiRoot.classList.toggle('xr-checking', isChecking)
+    xrUiRoot.classList.toggle('xr-available', isAvailable)
+    xrUiRoot.classList.toggle('xr-unavailable', isUnavailable)
+
+    xrButtonContainer.classList.toggle('xr-checking', isChecking)
+    xrButtonContainer.classList.toggle('xr-available', isAvailable)
+    xrButtonContainer.classList.toggle('xr-unavailable', isUnavailable)
+
+    if (!viewerStatus) return
+
+    viewerStatus.classList.toggle('xr-checking', isChecking)
+    viewerStatus.classList.toggle('xr-available', isAvailable)
+    viewerStatus.classList.toggle('xr-unavailable', isUnavailable)
+
+    if (isChecking) {
+      viewerStatus.textContent = 'Checking XR…'
+    } else if (isAvailable) {
+      viewerStatus.textContent = 'Desktop / XR Ready'
+    } else {
+      viewerStatus.textContent = 'XR unavailable'
+    }
+  }
+
+  async function refreshXRAvailability() {
+    setXRAvailabilityState('checking')
+
+    let isSupported = false
+
+    if (navigator.xr?.isSessionSupported) {
+      try {
+        isSupported = await navigator.xr.isSessionSupported(
+          'immersive-vr',
+        )
+      } catch (error) {
+        console.warn(
+          'Unable to determine immersive WebXR support:',
+          error,
+        )
+      }
+    }
+
+    setXRAvailabilityState(
+      isSupported ? 'available' : 'unavailable',
+    )
+
+    return isSupported
+  }
+
+  const xrAvailabilityPromise = refreshXRAvailability()
 
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2)
   scene.add(hemiLight)
@@ -146,23 +204,80 @@ export function createWebXRApp(options = {}) {
 
   const xrDebugPanel = new XRDebugPanel(camera)
 
-  const desktopFallback = new DesktopOrbitFallback(camera, {
+  let activeSimulation = null
+
+  function getActiveWebInteractionProfile() {
+    try {
+      return (
+        activeSimulation?.getWebInteractionProfile?.() ?? null
+      )
+    } catch (error) {
+      console.warn(
+        '[createWebXRApp] Active simulation interaction profile failed:',
+        error,
+      )
+      return null
+    }
+  }
+
+  const orbitCameraController = new OrbitCameraController(camera, {
     orbitSpeed: options.desktopOrbitSpeed ?? 1.5,
     dollySpeed: options.desktopDollySpeed ?? 2.0,
     minDistance: options.desktopMinDistance ?? 0.75,
     maxDistance: options.desktopMaxDistance ?? 12,
+    defaultDistance: options.desktopDefaultDistance ?? 2,
+
+    idleOrbitEnabled:
+      options.desktopIdleOrbitEnabled ?? true,
+    idleOrbitSpeed: THREE.MathUtils.degToRad(
+      options.desktopIdleOrbitDegreesPerSecond ?? 3,
+    ),
+    idleOrbitDelay:
+      options.desktopIdleOrbitDelaySeconds ?? 7,
   })
 
-  const updateCallbacks = []
+  const webInteractionController = new WebInteractionController({
+    element: renderer.domElement,
+    orbitCameraController,
 
-  let activeSimulation = null
+    dragActivationPixels:
+      options.webDragActivationPixels ??
+      options.touchDragActivationPixels ??
+      8,
+
+    orbitRadiansPerPixel:
+      options.webOrbitRadiansPerPixel ??
+      options.touchOrbitRadiansPerPixel ??
+      0.006,
+
+    pinchDollyDistancePerPixel:
+      options.webPinchDollyDistancePerPixel ?? 0.01,
+
+    wheelDollyDistancePerPixel:
+      options.webWheelDollyDistancePerPixel ?? 0.0025,
+
+    getInteractionProfile: getActiveWebInteractionProfile,
+
+    isEnabled: () => !renderer.xr.isPresenting,
+  })
+
+  function handleXRSessionStart() {
+    webInteractionController.reset()
+  }
+
+  renderer.xr.addEventListener(
+    'sessionstart',
+    handleXRSessionStart,
+  )
+
+  const updateCallbacks = []
 
   function onUpdate(callback) {
     updateCallbacks.push(callback)
   }
 
   function setDesktopOrbitTarget(target, targetOffset = null) {
-    desktopFallback.setTarget(target, targetOffset)
+    orbitCameraController.setTarget(target, targetOffset)
   }
 
   function resetPlayerTransform() {
@@ -172,7 +287,8 @@ export function createWebXRApp(options = {}) {
     camera.position.set(0, 1.6, 3)
     camera.rotation.set(0, 0, 0)
 
-    desktopFallback.reset()
+    webInteractionController.reset()
+    orbitCameraController.resetView()
   }
 
   function getActiveSimulation() {
@@ -207,6 +323,13 @@ export function createWebXRApp(options = {}) {
     if (desktopOrbitTarget) {
       setDesktopOrbitTarget(desktopOrbitTarget, desktopOrbitOffset)
     }
+
+    const interactionProfile =
+      getActiveWebInteractionProfile()
+
+    orbitCameraController.setIdleOrbitEnabled(
+      interactionProfile?.idleCameraOrbit !== false,
+    )
   }
 
   function resize() {
@@ -372,7 +495,7 @@ export function createWebXRApp(options = {}) {
 
         handInteractionSystem.update()
       } else {
-        desktopFallback.update(deltaTime)
+        orbitCameraController.update(deltaTime)
         locomotionState = getDesktopLocomotionState()
         handInteractionSystem.reset()
       }
@@ -426,11 +549,23 @@ export function createWebXRApp(options = {}) {
     window.removeEventListener('resize', resize)
     resizeObserver.disconnect()
 
-    desktopFallback.dispose()
+    renderer.xr.removeEventListener(
+      'sessionstart',
+      handleXRSessionStart,
+    )
+
+    webInteractionController.dispose()
+    orbitCameraController.dispose()
 
     if (activeSimulation?.exit) {
       activeSimulation.exit()
     }
+
+    xrUiRoot.classList.remove(
+      'xr-checking',
+      'xr-available',
+      'xr-unavailable',
+    )
 
     renderer.dispose()
   }
@@ -441,7 +576,12 @@ export function createWebXRApp(options = {}) {
     playerRig,
     renderer,
 
-    desktopFallback,
+    orbitCameraController,
+    webInteractionController,
+
+    // Temporary compatibility aliases for code using the earlier names.
+    desktopFallback: orbitCameraController,
+    touchViewportControls: webInteractionController,
 
     handLocomotionGestureSystem,
     handLocomotionSystem,
@@ -449,6 +589,9 @@ export function createWebXRApp(options = {}) {
     handInteractionSystem,
     handDebugSystem,
     xrDebugPanel,
+
+    xrAvailabilityPromise,
+    refreshXRAvailability,
 
     onUpdate,
 

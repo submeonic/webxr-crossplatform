@@ -24,12 +24,15 @@
 
       <div class="content">
         <main class="lesson-content">
-          <section class="lesson-section fade-scroll" data-simulation="intro-sphere">
+          <section
+            class="lesson-section fade-scroll"
+            data-simulation="intro-sphere"
+          >
             <p class="eyebrow">Simulation 01</p>
             <h2>Gesture Locomotion</h2>
             <p>
               This template includes a shared WebXR shell, a sticky 3D viewer,
-              desktop fallback navigation, and a thumb-controlled virtual D-pad
+              web orbit-camera navigation, and a thumb-controlled virtual D-pad
               locomotion system for immersive XR.
             </p>
             <p>
@@ -37,9 +40,17 @@
               <strong>arrow keys</strong> to orbit and dolly around the active
               simulation target.
             </p>
+
+            <div
+              class="mobile-viewer-slot"
+              data-viewer-slot="intro-sphere"
+            ></div>
           </section>
 
-          <section class="lesson-section fade-scroll" data-simulation="s-orbitals">
+          <section
+            class="lesson-section fade-scroll"
+            data-simulation="s-orbitals"
+          >
             <p class="eyebrow">Simulation 02</p>
             <h2>S Orbitals</h2>
             <p>
@@ -51,6 +62,12 @@
               When a new simulation becomes active, the player rig and camera
               are reset so each section starts from a predictable view.
             </p>
+
+            <div
+              class="mobile-viewer-slot"
+              data-viewer-slot="s-orbitals"
+            ></div>
+
             <div
               id="s-orbitals-desktop-graph"
               class="desktop-radial-graph"
@@ -59,7 +76,10 @@
             </div>
           </section>
 
-          <section class="lesson-section fade-scroll" data-simulation="p-orbitals">
+          <section
+            class="lesson-section fade-scroll"
+            data-simulation="p-orbitals"
+          >
             <p class="eyebrow">Simulation 03</p>
             <h2>P Orbitals</h2>
             <p>
@@ -71,11 +91,22 @@
               This lets new LearnQM chapters reuse the same WebXR infrastructure
               while replacing only the educational scene content.
             </p>
+
+            <div
+              class="mobile-viewer-slot"
+              data-viewer-slot="p-orbitals"
+            ></div>
           </section>
         </main>
 
-        <aside class="simulation-column">
-          <div class="simulation-sticky fade-scroll">
+        <aside
+          class="simulation-column"
+          data-desktop-viewer-slot
+        >
+          <div
+            class="simulation-sticky fade-scroll"
+            data-simulation-viewer
+          >
             <div class="viewer-label">
               <span>Interactive 3D View</span>
               <span class="viewer-status">Desktop / XR Ready</span>
@@ -86,7 +117,12 @@
             <div id="xr-button-container"></div>
 
             <p class="viewer-hint">
-              Desktop: WASD / arrows · XR: hand D-pad locomotion
+              <span class="viewer-hint__desktop">
+                Drag sideways to orbit · drag vertically to adjust · scroll to zoom · XR: hand controls
+              </span>
+              <span class="viewer-hint__mobile">
+                Touch: drag sideways to orbit · drag vertically to adjust · pinch to zoom
+              </span>
             </p>
           </div>
         </aside>

@@ -30,6 +30,18 @@
   --viewer-min-width: 420px;
   --text-column-min: 300px;
   --min-layout-width: 760px;
+
+  /* Approximate non-canvas height of the mobile viewer. */
+  --mobile-viewer-ui-height: 130px;
+}
+
+html.xr-checking,
+html.xr-unavailable {
+  --mobile-viewer-ui-height: 85px;
+}
+
+html.xr-available {
+  --mobile-viewer-ui-height: 130px;
 }
 
 *,
@@ -159,6 +171,7 @@ body {
   position: relative;
   z-index: 1;
   min-width: 0;
+  align-self: stretch;
 }
 
 /* Larger spacing so scroll-based simulation switching feels deliberate */
@@ -286,6 +299,17 @@ body {
   display: none;
 }
 
+/* Responsive viewer destinations */
+.mobile-viewer-slot {
+  display: none;
+  width: 100%;
+  min-width: 0;
+}
+
+.viewer-hint__mobile {
+  display: none;
+}
+
 /* Sticky WebXR viewer */
 .simulation-sticky {
   position: sticky;
@@ -332,6 +356,7 @@ body {
   background: var(--canvasBg);
   border: 1px solid var(--line);
   overflow: hidden;
+  touch-action: none;
 }
 
 #xr-canvas-container canvas {
@@ -349,6 +374,20 @@ body {
   align-items: center;
 
   padding-top: 0.5rem;
+}
+
+/* Hide Three.js' large disabled button while checking or unsupported. */
+#xr-button-container.xr-checking,
+#xr-button-container.xr-unavailable {
+  display: none;
+  min-height: 0;
+  padding: 0;
+}
+
+.viewer-status.xr-checking,
+.viewer-status.xr-unavailable {
+  font-size: 12px;
+  opacity: 0.75;
 }
 
 #xr-button-container button,
@@ -439,9 +478,10 @@ body {
 
 /*
 Responsive behavior:
-- Never collapse to one column.
-- Keep the lesson text and active simulation viewport paired.
-- On very narrow screens, preserve the two-column layout and allow horizontal scrolling.
+- Desktop and larger tablets retain the sticky two-column viewer.
+- Phones use a true single-column document layout.
+- On phones, the same viewer is moved into the active section's
+  data-viewer-slot and behaves as a normal, non-sticky block.
 */
 
 /* Compact two-column mode */
@@ -491,30 +531,24 @@ Responsive behavior:
   }
 }
 
-/* Tight two-column mode for narrow screens */
+/* True single-column phone layout */
 @media (max-width: 760px) {
-  #body_parent {
-    overflow-x: auto;
+  :root {
+    --page-gutter: 1rem;
+    --min-layout-width: 0px;
   }
 
-  .content {
-    display: grid;
-    grid-template-columns: 320px 420px;
-    gap: 1rem;
-
-    width: var(--min-layout-width);
-    min-width: var(--min-layout-width);
-
-    padding-bottom: 160px;
+  #body_parent {
+    overflow-x: hidden;
+    padding-bottom: 0;
   }
 
   .title-row {
-    width: var(--min-layout-width);
-    min-width: var(--min-layout-width);
-
+    width: 100%;
+    min-width: 0;
     padding-top: 120px;
-    padding-left: 1rem;
-    padding-right: 1rem;
+    padding-left: var(--page-gutter);
+    padding-right: var(--page-gutter);
   }
 
   .title-row h1 {
@@ -523,21 +557,39 @@ Responsive behavior:
   }
 
   .title-row p {
+    margin-top: 20px;
     font-size: 16px;
     line-height: 24px;
   }
 
+  .content {
+    display: block;
+
+    width: 100%;
+    min-width: 0;
+
+    padding-left: var(--page-gutter);
+    padding-right: var(--page-gutter);
+    padding-bottom: 120px;
+  }
+
+  .lesson-content {
+    width: 100%;
+    padding-bottom: 0;
+    container-type: inline-size;
+  }
+
   .lesson-section {
-    min-height: 115vh;
-    margin-top: 180px;
+    min-height: 100svh;
+    margin-top: 8rem;
   }
 
   .lesson-section:first-child {
-    margin-top: 180px;
+    margin-top: 8rem;
   }
 
   .lesson-section:last-child {
-    margin-bottom: 220px;
+    margin-bottom: 10rem;
   }
 
   .lesson-section h2 {
@@ -546,42 +598,97 @@ Responsive behavior:
   }
 
   .lesson-section p {
-    font-size: 15px;
-    line-height: 23px;
+    font-size: 16px;
+    line-height: 24px;
   }
 
   .simulation-column {
-    position: relative;
-    z-index: 1;
+    display: none;
   }
 
-  .simulation-sticky {
-    position: sticky;
-    top: 1rem;
+  .mobile-viewer-slot {
+    display: block;
 
-    height: calc(100vh - 2rem);
-    min-height: 520px;
+    width: 100%;
+    min-width: 0;
 
-    justify-content: center;
+    /*
+    Empty and occupied slots reserve the same space, preventing the page
+    from jumping when the shared viewer moves between lesson sections.
+    */
+    min-height: calc(75cqi + var(--mobile-viewer-ui-height));
+
+    margin-top: 2rem;
+    margin-bottom: 2rem;
+  }
+
+  .mobile-viewer-slot .simulation-sticky {
+    position: static;
+    top: auto;
+    z-index: 1;
+
+    width: 100%;
+    height: auto;
+    min-height: 0;
+
+    justify-content: flex-start;
+    gap: 0.75rem;
   }
 
   #xr-canvas-container {
-    height: min(52vh, 420px);
-    min-height: 320px;
+    width: 100%;
+    height: auto;
+    min-height: 0;
+    aspect-ratio: 4 / 3;
+  }
+
+  #xr-button-container {
+    min-height: 40px;
+    padding-top: 0.15rem;
+  }
+
+  #xr-button-container button,
+  #xr-button-container a,
+  #VRButton {
+    min-width: 130px !important;
+    min-height: 34px !important;
+
+    padding: 7px 12px !important;
+
+    border-width: 1px !important;
+
+    font-size: 13px !important;
+  }
+
+  #xr-button-container.xr-checking,
+  #xr-button-container.xr-unavailable {
+    display: none;
+    min-height: 0;
+    padding: 0;
   }
 
   .desktop-radial-graph {
-    height: 300px;
+    width: 100%;
+    max-width: none;
+    height: auto;
+    aspect-ratio: 4 / 3;
+    margin-top: 1.5rem;
   }
 
   .viewer-label {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0.25rem;
+    flex-wrap: wrap;
+    gap: 0.25rem 1rem;
+  }
+
+  .viewer-hint__desktop {
+    display: none;
+  }
+
+  .viewer-hint__mobile {
+    display: inline;
   }
 }
 
-/* Tiny-screen typography only. Layout stays two-column. */
 @media (max-width: 450px) {
   .title-row h1 {
     font-size: 30px;
@@ -593,6 +700,14 @@ Responsive behavior:
     line-height: 23px;
   }
 
+  .lesson-section {
+    margin-top: 6rem;
+  }
+
+  .lesson-section:first-child {
+    margin-top: 6rem;
+  }
+
   .lesson-section h2 {
     font-size: 28px;
     line-height: 42px;
@@ -601,5 +716,10 @@ Responsive behavior:
   .lesson-section p {
     font-size: 15px;
     line-height: 23px;
+  }
+
+  .viewer-label {
+    align-items: flex-start;
+    flex-direction: column;
   }
 }

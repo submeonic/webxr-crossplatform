@@ -23,11 +23,15 @@ a0ToMeters controls how physically large the cloud feels in XR.
 const ELECTRON_COUNT = 1500
 const R_MAX_A0 = 5.0
 const A0_TO_METERS = 0.25
+
 const ELECTRON_RADIUS_METERS = 0.012
 const NUCLEUS_RADIUS_METERS = 0.045
+
 const SHELL_THICKNESS_A0 = 0.15
 const INITIAL_SHELL_OUTER_RADIUS_A0 = 1.15
 const SHELL_DRAG_GAIN_A0_PER_METER = 1.25
+
+const WEB_SHELL_FULL_RANGE_DRAG_PIXELS = 260
 
 const GRAPH_WORLD_POSITION = new THREE.Vector3()
 const CAMERA_WORLD_POSITION = new THREE.Vector3()
@@ -92,6 +96,7 @@ export function createSOrbitalSimulation(app) {
     shellGeometry,
     outerShellMaterial,
   )
+
   outerShell.name = 'OuterFresnelShell'
   outerShell.renderOrder = 10
 
@@ -99,6 +104,7 @@ export function createSOrbitalSimulation(app) {
     shellGeometry,
     innerShellMaterial,
   )
+
   innerShell.name = 'InnerFresnelShell'
   innerShell.renderOrder = 11
 
@@ -125,11 +131,15 @@ export function createSOrbitalSimulation(app) {
 
   const shellState = {
     outerRadiusA0: INITIAL_SHELL_OUTER_RADIUS_A0,
-    innerRadiusA0: INITIAL_SHELL_OUTER_RADIUS_A0 - SHELL_THICKNESS_A0,
+    innerRadiusA0:
+      INITIAL_SHELL_OUTER_RADIUS_A0 -
+      SHELL_THICKNESS_A0,
     highlightedCount: 0,
   }
 
   let radialScaleControl = null
+  let webShellDragStartRadiusA0 =
+    shellState.outerRadiusA0
 
   const desktopGraph = createDesktopRadialGraph({
     containerId: 's-orbitals-desktop-graph',
@@ -138,9 +148,7 @@ export function createSOrbitalSimulation(app) {
     maxRadiusA0: R_MAX_A0,
 
     onRadiusChange(nextRadiusA0) {
-      if (!radialScaleControl) {
-        return
-      }
+      if (!radialScaleControl) return
 
       radialScaleControl.setValue(
         nextRadiusA0,
@@ -166,6 +174,10 @@ export function createSOrbitalSimulation(app) {
     desktopGraph.update(graphState)
   }
 
+  /**
+   * The single authoritative shell update path used by desktop graph input,
+   * XR pinch-drag input, web pointer input, and external callers.
+   */
   function setShellOuterRadiusA0(nextOuterRadiusA0) {
     shellState.outerRadiusA0 = THREE.MathUtils.clamp(
       nextOuterRadiusA0,
@@ -178,13 +190,16 @@ export function createSOrbitalSimulation(app) {
       0.001,
     )
 
-    const outerRadiusMeters = shellState.outerRadiusA0 * A0_TO_METERS
-    const innerRadiusMeters = shellState.innerRadiusA0 * A0_TO_METERS
+    const outerRadiusMeters =
+      shellState.outerRadiusA0 * A0_TO_METERS
+
+    const innerRadiusMeters =
+      shellState.innerRadiusA0 * A0_TO_METERS
 
     /*
     Constant-thickness shell:
-    The user controls outer radius.
-    Inner radius is computed so the shell gap remains fixed.
+    The user controls outer radius. Inner radius is computed so the shell
+    gap remains fixed.
     */
     outerShell.scale.setScalar(outerRadiusMeters)
     innerShell.scale.setScalar(innerRadiusMeters)
@@ -212,8 +227,7 @@ export function createSOrbitalSimulation(app) {
 
     /*
     Yaw-only billboard:
-    The graph turns left/right to face the camera,
-    but it stays vertically upright.
+    The graph turns left/right to face the camera, but remains upright.
     */
     GRAPH_LOOK_TARGET.copy(CAMERA_WORLD_POSITION)
     GRAPH_LOOK_TARGET.y = GRAPH_WORLD_POSITION.y
@@ -242,11 +256,18 @@ export function createSOrbitalSimulation(app) {
 
   return {
     name: 's-orbitals',
+
     group,
     simulationRoot,
     contentAnchor,
+
     desktopOrbitTarget: simulationRoot,
-    desktopOrbitOffset: new THREE.Vector3(0, CONTENT_HEIGHT, 0),
+    desktopOrbitOffset: new THREE.Vector3(
+      0,
+      CONTENT_HEIGHT,
+      0,
+    ),
+
     orbitTarget: contentAnchor,
 
     enter() {
@@ -259,9 +280,7 @@ export function createSOrbitalSimulation(app) {
     },
 
     handleInput(interactionState, context = {}) {
-      if (!context.isXR) {
-        return
-      }
+      if (!context.isXR) return
 
       radialScaleControl.update(interactionState)
     },
@@ -274,6 +293,50 @@ export function createSOrbitalSimulation(app) {
 
       if (isXR) {
         updateGraphBillboard()
+      }
+    },
+
+    /**
+     * Optional web interaction profile consumed by WebInteractionController.
+     * Horizontal drag, touch pinch, and mouse wheel use shared camera defaults.
+     * Vertical pointer drag is owned by this simulation and adjusts the shell.
+     *
+     * A future 2p simulation can provide horizontalDrag and verticalDrag
+     * handlers that rotate its own interaction root instead of the camera.
+     */
+    getWebInteractionProfile() {
+      return {
+        idleCameraOrbit: true,
+
+        verticalDrag: {
+          onStart() {
+            webShellDragStartRadiusA0 =
+              shellState.outerRadiusA0
+          },
+
+          onChange({ totalDeltaY }) {
+            if (!radialScaleControl) return
+
+            const normalizedDelta =
+              -totalDeltaY /
+              WEB_SHELL_FULL_RANGE_DRAG_PIXELS
+
+            const nextRadiusA0 =
+              webShellDragStartRadiusA0 +
+              normalizedDelta *
+                (R_MAX_A0 - SHELL_THICKNESS_A0)
+
+            radialScaleControl.setValue(
+              nextRadiusA0,
+              'web-vertical-drag',
+            )
+          },
+
+          onEnd() {
+            webShellDragStartRadiusA0 =
+              shellState.outerRadiusA0
+          },
+        },
       }
     },
 
