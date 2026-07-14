@@ -1,13 +1,15 @@
 import * as THREE from 'three'
 
 const TEMP_TARGET_POSITION = new THREE.Vector3()
+const TEMP_CAMERA_OFFSET = new THREE.Vector3()
 
 export class DesktopOrbitFallback {
   constructor(camera, options = {}) {
     this.camera = camera
 
     this.target = options.target ?? new THREE.Vector3(0, 0, -2)
-    this.targetOffset = options.targetOffset ?? new THREE.Vector3(0, 1.45, 0)
+    this.targetOffset =
+      options.targetOffset ?? new THREE.Vector3(0, 1.45, 0)
 
     this.keys = {
       forward: false,
@@ -33,9 +35,11 @@ export class DesktopOrbitFallback {
 
     this.handleKeyDown = this.handleKeyDown.bind(this)
     this.handleKeyUp = this.handleKeyUp.bind(this)
+    this.handleWindowBlur = this.handleWindowBlur.bind(this)
 
     window.addEventListener('keydown', this.handleKeyDown)
     window.addEventListener('keyup', this.handleKeyUp)
+    window.addEventListener('blur', this.handleWindowBlur)
   }
 
   setTarget(target, targetOffset = null) {
@@ -45,12 +49,27 @@ export class DesktopOrbitFallback {
       this.targetOffset.copy(targetOffset)
     }
 
-    this.reset()
+    this.resetView()
   }
 
-  reset() {
+  /**
+   * Marks the orbit state for reinitialization on the next update.
+   *
+   * This preserves the existing behavior used when changing simulations.
+   */
+  resetView() {
     this.state.initialized = false
+    this.clearKeyboardInput()
+  }
 
+  /**
+   * Retained as an alias so existing calls to reset() continue working.
+   */
+  reset() {
+    this.resetView()
+  }
+
+  clearKeyboardInput() {
     this.keys.forward = false
     this.keys.back = false
     this.keys.left = false
@@ -93,6 +112,10 @@ export class DesktopOrbitFallback {
     }
   }
 
+  handleWindowBlur() {
+    this.clearKeyboardInput()
+  }
+
   getTargetPosition() {
     if (this.target instanceof THREE.Object3D) {
       this.target.getWorldPosition(TEMP_TARGET_POSITION)
@@ -108,16 +131,16 @@ export class DesktopOrbitFallback {
   initialize() {
     const targetPosition = this.getTargetPosition()
 
-    const offset = this.camera.position.clone().sub(targetPosition)
-    offset.y = 0
+    TEMP_CAMERA_OFFSET
+      .copy(this.camera.position)
+      .sub(targetPosition)
 
-    const derivedDistance = offset.length()
+    TEMP_CAMERA_OFFSET.y = 0
 
-    const startingDistance =
-      this.settings.defaultDistance ?? derivedDistance
+    const derivedDistance = TEMP_CAMERA_OFFSET.length()
 
     this.state.distance = THREE.MathUtils.clamp(
-      startingDistance,
+      this.settings.defaultDistance ?? derivedDistance,
       this.settings.minDistance,
       this.settings.maxDistance,
     )
@@ -125,43 +148,98 @@ export class DesktopOrbitFallback {
     if (derivedDistance < 0.001) {
       this.state.angle = 0
     } else {
-      this.state.angle = Math.atan2(offset.x, offset.z)
+      this.state.angle = Math.atan2(
+        TEMP_CAMERA_OFFSET.x,
+        TEMP_CAMERA_OFFSET.z,
+      )
     }
 
     this.state.height = this.camera.position.y
     this.state.initialized = true
   }
 
-  update(deltaTime) {
+  ensureInitialized() {
     if (!this.state.initialized) {
       this.initialize()
     }
+  }
 
-    const targetPosition = this.getTargetPosition()
+  /**
+   * Applies an immediate angular change around the current target.
+   *
+   * Positive values orbit right.
+   * Negative values orbit left.
+   */
+  applyOrbitDelta(deltaRadians) {
+    if (!Number.isFinite(deltaRadians)) {
+      return
+    }
 
-    const orbitInput = (this.keys.right ? 1 : 0) - (this.keys.left ? 1 : 0)
-    const dollyInput = (this.keys.back ? 1 : 0) - (this.keys.forward ? 1 : 0)
+    this.ensureInitialized()
+    this.state.angle += deltaRadians
+  }
 
-    this.state.angle += orbitInput * this.settings.orbitSpeed * deltaTime
-    this.state.distance += dollyInput * this.settings.dollySpeed * deltaTime
+  /**
+   * Applies an immediate distance change from the current target.
+   *
+   * Positive values move farther away.
+   * Negative values move closer.
+   */
+  applyDollyDelta(deltaDistance) {
+    if (!Number.isFinite(deltaDistance)) {
+      return
+    }
+
+    this.ensureInitialized()
 
     this.state.distance = THREE.MathUtils.clamp(
-      this.state.distance,
+      this.state.distance + deltaDistance,
       this.settings.minDistance,
       this.settings.maxDistance,
     )
+  }
+
+  updateCameraTransform() {
+    const targetPosition = this.getTargetPosition()
 
     this.camera.position.set(
-      targetPosition.x + Math.sin(this.state.angle) * this.state.distance,
+      targetPosition.x +
+        Math.sin(this.state.angle) * this.state.distance,
       this.state.height,
-      targetPosition.z + Math.cos(this.state.angle) * this.state.distance,
+      targetPosition.z +
+        Math.cos(this.state.angle) * this.state.distance,
     )
 
     this.camera.lookAt(targetPosition)
   }
 
+  update(deltaTime) {
+    this.ensureInitialized()
+
+    const orbitInput =
+      (this.keys.right ? 1 : 0) -
+      (this.keys.left ? 1 : 0)
+
+    const dollyInput =
+      (this.keys.back ? 1 : 0) -
+      (this.keys.forward ? 1 : 0)
+
+    this.applyOrbitDelta(
+      orbitInput * this.settings.orbitSpeed * deltaTime,
+    )
+
+    this.applyDollyDelta(
+      dollyInput * this.settings.dollySpeed * deltaTime,
+    )
+
+    this.updateCameraTransform()
+  }
+
   dispose() {
     window.removeEventListener('keydown', this.handleKeyDown)
     window.removeEventListener('keyup', this.handleKeyUp)
+    window.removeEventListener('blur', this.handleWindowBlur)
+
+    this.clearKeyboardInput()
   }
 }
