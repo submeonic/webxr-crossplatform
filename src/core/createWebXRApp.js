@@ -15,6 +15,8 @@ import { HandInteractionSystem } from '../systems/interaction/HandInteractionSys
 export function createWebXRApp(options = {}) {
   const container = options.container
   const xrButtonContainer = options.xrButtonContainer
+  const viewerStatus = options.viewerStatus ?? null
+  const xrUiRoot = options.xrUiRoot ?? document.documentElement
 
   if (!container) {
     throw new Error('createWebXRApp requires options.container')
@@ -53,6 +55,61 @@ export function createWebXRApp(options = {}) {
   })
 
   xrButtonContainer.appendChild(xrButton)
+
+  function setXRAvailabilityState(state) {
+    const isChecking = state === 'checking'
+    const isAvailable = state === 'available'
+    const isUnavailable = state === 'unavailable'
+
+    xrUiRoot.classList.toggle('xr-checking', isChecking)
+    xrUiRoot.classList.toggle('xr-available', isAvailable)
+    xrUiRoot.classList.toggle('xr-unavailable', isUnavailable)
+
+    xrButtonContainer.classList.toggle('xr-checking', isChecking)
+    xrButtonContainer.classList.toggle('xr-available', isAvailable)
+    xrButtonContainer.classList.toggle('xr-unavailable', isUnavailable)
+
+    if (!viewerStatus) return
+
+    viewerStatus.classList.toggle('xr-checking', isChecking)
+    viewerStatus.classList.toggle('xr-available', isAvailable)
+    viewerStatus.classList.toggle('xr-unavailable', isUnavailable)
+
+    if (isChecking) {
+      viewerStatus.textContent = 'Checking XR…'
+    } else if (isAvailable) {
+      viewerStatus.textContent = 'Desktop / XR Ready'
+    } else {
+      viewerStatus.textContent = 'XR unavailable'
+    }
+  }
+
+  async function refreshXRAvailability() {
+    setXRAvailabilityState('checking')
+
+    let isSupported = false
+
+    if (navigator.xr?.isSessionSupported) {
+      try {
+        isSupported = await navigator.xr.isSessionSupported(
+          'immersive-vr',
+        )
+      } catch (error) {
+        console.warn(
+          'Unable to determine immersive WebXR support:',
+          error,
+        )
+      }
+    }
+
+    setXRAvailabilityState(
+      isSupported ? 'available' : 'unavailable',
+    )
+
+    return isSupported
+  }
+
+  const xrAvailabilityPromise = refreshXRAvailability()
 
   const hemiLight = new THREE.HemisphereLight(0xffffff, 0x444444, 2)
   scene.add(hemiLight)
@@ -432,6 +489,12 @@ export function createWebXRApp(options = {}) {
       activeSimulation.exit()
     }
 
+    xrUiRoot.classList.remove(
+      'xr-checking',
+      'xr-available',
+      'xr-unavailable',
+    )
+
     renderer.dispose()
   }
 
@@ -449,6 +512,9 @@ export function createWebXRApp(options = {}) {
     handInteractionSystem,
     handDebugSystem,
     xrDebugPanel,
+
+    xrAvailabilityPromise,
+    refreshXRAvailability,
 
     onUpdate,
 
