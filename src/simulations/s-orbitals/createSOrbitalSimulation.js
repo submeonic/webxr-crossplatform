@@ -31,7 +31,7 @@ const SHELL_THICKNESS_A0 = 0.15
 const INITIAL_SHELL_OUTER_RADIUS_A0 = 1.15
 const SHELL_DRAG_GAIN_A0_PER_METER = 1.25
 
-const TOUCH_FULL_RANGE_PINCH_DISTANCE_PX = 220
+const WEB_SHELL_FULL_RANGE_DRAG_PIXELS = 260
 
 const GRAPH_WORLD_POSITION = new THREE.Vector3()
 const CAMERA_WORLD_POSITION = new THREE.Vector3()
@@ -138,6 +138,8 @@ export function createSOrbitalSimulation(app) {
   }
 
   let radialScaleControl = null
+  let webShellDragStartRadiusA0 =
+    shellState.outerRadiusA0
 
   const desktopGraph = createDesktopRadialGraph({
     containerId: 's-orbitals-desktop-graph',
@@ -174,7 +176,7 @@ export function createSOrbitalSimulation(app) {
 
   /**
    * The single authoritative shell update path used by desktop graph input,
-   * XR pinch-drag input, mobile touch input, and external callers.
+   * XR pinch-drag input, web pointer input, and external callers.
    */
   function setShellOuterRadiusA0(nextOuterRadiusA0) {
     shellState.outerRadiusA0 = THREE.MathUtils.clamp(
@@ -295,26 +297,45 @@ export function createSOrbitalSimulation(app) {
     },
 
     /**
-     * Optional web-touch binding consumed by TouchViewportControls.
-     * The touch controller only sees a generic numeric parameter and does not
-     * need to know that the value represents an orbital shell radius.
+     * Optional web interaction profile consumed by WebInteractionController.
+     * Horizontal drag, touch pinch, and mouse wheel use shared camera defaults.
+     * Vertical pointer drag is owned by this simulation and adjusts the shell.
+     *
+     * A future 2p simulation can provide horizontalDrag and verticalDrag
+     * handlers that rotate its own interaction root instead of the camera.
      */
-    getTouchControls() {
+    getWebInteractionProfile() {
       return {
-        pinchParameter: {
-          getValue: () => shellState.outerRadiusA0,
+        idleCameraOrbit: true,
 
-          setValue(nextRadiusA0) {
-            return radialScaleControl.setValue(
+        verticalDrag: {
+          onStart() {
+            webShellDragStartRadiusA0 =
+              shellState.outerRadiusA0
+          },
+
+          onChange({ totalDeltaY }) {
+            if (!radialScaleControl) return
+
+            const normalizedDelta =
+              -totalDeltaY /
+              WEB_SHELL_FULL_RANGE_DRAG_PIXELS
+
+            const nextRadiusA0 =
+              webShellDragStartRadiusA0 +
+              normalizedDelta *
+                (R_MAX_A0 - SHELL_THICKNESS_A0)
+
+            radialScaleControl.setValue(
               nextRadiusA0,
-              'touch-pinch',
+              'web-vertical-drag',
             )
           },
 
-          minValue: SHELL_THICKNESS_A0,
-          maxValue: R_MAX_A0,
-          fullRangePinchDistancePx:
-            TOUCH_FULL_RANGE_PINCH_DISTANCE_PX,
+          onEnd() {
+            webShellDragStartRadiusA0 =
+              shellState.outerRadiusA0
+          },
         },
       }
     },

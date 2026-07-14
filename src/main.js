@@ -59,10 +59,10 @@ const app = createWebXRApp({
   showHandDebugJoints: false,
   showHandDebugAxes: false,
 
-  touchDragActivationPixels: 8,
-  touchOrbitRadiansPerPixel: 0.006,
-  touchDollyDistancePerPixel: 0.01,
-  touchPinchFullRangeDistancePx: 220,
+  webDragActivationPixels: 8,
+  webOrbitRadiansPerPixel: 0.006,
+  webPinchDollyDistancePerPixel: 0.01,
+  webWheelDollyDistancePerPixel: 0.0025,
 
   // Idle camera presentation behavior. Negative speed reverses direction.
   desktopIdleOrbitEnabled: true,

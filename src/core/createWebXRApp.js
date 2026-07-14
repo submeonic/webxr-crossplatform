@@ -5,7 +5,7 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
 
 import { OrbitCameraController } from '../systems/navigation/OrbitCameraController.js'
-import { TouchViewportControls } from '../systems/navigation/TouchViewportControls.js'
+import { WebInteractionController } from '../systems/navigation/WebInteractionController.js'
 import { HandDebugSystem } from '../systems/debug/HandDebugSystem.js'
 import { XRDebugPanel } from '../systems/debug/XRDebugPanel.js'
 import { HandLocomotionGestureSystem } from '../systems/locomotion/HandLocomotionGestureSystem.js'
@@ -206,6 +206,20 @@ export function createWebXRApp(options = {}) {
 
   let activeSimulation = null
 
+  function getActiveWebInteractionProfile() {
+    try {
+      return (
+        activeSimulation?.getWebInteractionProfile?.() ?? null
+      )
+    } catch (error) {
+      console.warn(
+        '[createWebXRApp] Active simulation interaction profile failed:',
+        error,
+      )
+      return null
+    }
+  }
+
   const orbitCameraController = new OrbitCameraController(camera, {
     orbitSpeed: options.desktopOrbitSpeed ?? 1.5,
     dollySpeed: options.desktopDollySpeed ?? 2.0,
@@ -222,31 +236,33 @@ export function createWebXRApp(options = {}) {
       options.desktopIdleOrbitDelaySeconds ?? 7,
   })
 
-  const touchViewportControls = new TouchViewportControls({
+  const webInteractionController = new WebInteractionController({
     element: renderer.domElement,
     orbitCameraController,
 
     dragActivationPixels:
-      options.touchDragActivationPixels ?? 8,
-    orbitRadiansPerPixel:
-      options.touchOrbitRadiansPerPixel ?? 0.006,
-    dollyDistancePerPixel:
-      options.touchDollyDistancePerPixel ?? 0.01,
-    defaultFullRangePinchDistancePx:
-      options.touchPinchFullRangeDistancePx ?? 220,
+      options.webDragActivationPixels ??
+      options.touchDragActivationPixels ??
+      8,
 
-    getPinchBinding: () => {
-      return (
-        activeSimulation?.getTouchControls?.()
-          ?.pinchParameter ?? null
-      )
-    },
+    orbitRadiansPerPixel:
+      options.webOrbitRadiansPerPixel ??
+      options.touchOrbitRadiansPerPixel ??
+      0.006,
+
+    pinchDollyDistancePerPixel:
+      options.webPinchDollyDistancePerPixel ?? 0.01,
+
+    wheelDollyDistancePerPixel:
+      options.webWheelDollyDistancePerPixel ?? 0.0025,
+
+    getInteractionProfile: getActiveWebInteractionProfile,
 
     isEnabled: () => !renderer.xr.isPresenting,
   })
 
   function handleXRSessionStart() {
-    touchViewportControls.reset()
+    webInteractionController.reset()
   }
 
   renderer.xr.addEventListener(
@@ -271,7 +287,7 @@ export function createWebXRApp(options = {}) {
     camera.position.set(0, 1.6, 3)
     camera.rotation.set(0, 0, 0)
 
-    touchViewportControls.reset()
+    webInteractionController.reset()
     orbitCameraController.resetView()
   }
 
@@ -307,6 +323,13 @@ export function createWebXRApp(options = {}) {
     if (desktopOrbitTarget) {
       setDesktopOrbitTarget(desktopOrbitTarget, desktopOrbitOffset)
     }
+
+    const interactionProfile =
+      getActiveWebInteractionProfile()
+
+    orbitCameraController.setIdleOrbitEnabled(
+      interactionProfile?.idleCameraOrbit !== false,
+    )
   }
 
   function resize() {
@@ -531,7 +554,7 @@ export function createWebXRApp(options = {}) {
       handleXRSessionStart,
     )
 
-    touchViewportControls.dispose()
+    webInteractionController.dispose()
     orbitCameraController.dispose()
 
     if (activeSimulation?.exit) {
@@ -554,10 +577,11 @@ export function createWebXRApp(options = {}) {
     renderer,
 
     orbitCameraController,
-    touchViewportControls,
+    webInteractionController,
 
-    // Temporary compatibility alias for code that still expects the old name.
+    // Temporary compatibility aliases for code using the earlier names.
     desktopFallback: orbitCameraController,
+    touchViewportControls: webInteractionController,
 
     handLocomotionGestureSystem,
     handLocomotionSystem,

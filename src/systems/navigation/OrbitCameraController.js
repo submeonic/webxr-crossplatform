@@ -96,6 +96,22 @@ export class OrbitCameraController {
   }
 
   /**
+   * Allows an active simulation to disable the shared idle camera orbit.
+   * Re-enabling it starts the automatic presentation orbit immediately.
+   */
+  setIdleOrbitEnabled(enabled) {
+    this.settings.idleOrbitEnabled = Boolean(enabled)
+
+    if (this.settings.idleOrbitEnabled) {
+      this.state.idleElapsed = this.settings.idleOrbitDelay
+    }
+  }
+
+  isIdleOrbitEnabled() {
+    return this.settings.idleOrbitEnabled
+  }
+
+  /**
    * Prevents idle orbit while an external pointer gesture is held active.
    * Calls are counted so this remains safe if more input systems are added.
    */
