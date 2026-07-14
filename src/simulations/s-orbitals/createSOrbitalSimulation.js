@@ -23,11 +23,15 @@ a0ToMeters controls how physically large the cloud feels in XR.
 const ELECTRON_COUNT = 1500
 const R_MAX_A0 = 5.0
 const A0_TO_METERS = 0.25
+
 const ELECTRON_RADIUS_METERS = 0.012
 const NUCLEUS_RADIUS_METERS = 0.045
+
 const SHELL_THICKNESS_A0 = 0.15
 const INITIAL_SHELL_OUTER_RADIUS_A0 = 1.15
 const SHELL_DRAG_GAIN_A0_PER_METER = 1.25
+
+const TOUCH_FULL_RANGE_PINCH_DISTANCE_PX = 220
 
 const GRAPH_WORLD_POSITION = new THREE.Vector3()
 const CAMERA_WORLD_POSITION = new THREE.Vector3()
@@ -92,6 +96,7 @@ export function createSOrbitalSimulation(app) {
     shellGeometry,
     outerShellMaterial,
   )
+
   outerShell.name = 'OuterFresnelShell'
   outerShell.renderOrder = 10
 
@@ -99,6 +104,7 @@ export function createSOrbitalSimulation(app) {
     shellGeometry,
     innerShellMaterial,
   )
+
   innerShell.name = 'InnerFresnelShell'
   innerShell.renderOrder = 11
 
@@ -125,7 +131,9 @@ export function createSOrbitalSimulation(app) {
 
   const shellState = {
     outerRadiusA0: INITIAL_SHELL_OUTER_RADIUS_A0,
-    innerRadiusA0: INITIAL_SHELL_OUTER_RADIUS_A0 - SHELL_THICKNESS_A0,
+    innerRadiusA0:
+      INITIAL_SHELL_OUTER_RADIUS_A0 -
+      SHELL_THICKNESS_A0,
     highlightedCount: 0,
   }
 
@@ -138,9 +146,7 @@ export function createSOrbitalSimulation(app) {
     maxRadiusA0: R_MAX_A0,
 
     onRadiusChange(nextRadiusA0) {
-      if (!radialScaleControl) {
-        return
-      }
+      if (!radialScaleControl) return
 
       radialScaleControl.setValue(
         nextRadiusA0,
@@ -166,6 +172,10 @@ export function createSOrbitalSimulation(app) {
     desktopGraph.update(graphState)
   }
 
+  /**
+   * The single authoritative shell update path used by desktop graph input,
+   * XR pinch-drag input, mobile touch input, and external callers.
+   */
   function setShellOuterRadiusA0(nextOuterRadiusA0) {
     shellState.outerRadiusA0 = THREE.MathUtils.clamp(
       nextOuterRadiusA0,
@@ -178,13 +188,16 @@ export function createSOrbitalSimulation(app) {
       0.001,
     )
 
-    const outerRadiusMeters = shellState.outerRadiusA0 * A0_TO_METERS
-    const innerRadiusMeters = shellState.innerRadiusA0 * A0_TO_METERS
+    const outerRadiusMeters =
+      shellState.outerRadiusA0 * A0_TO_METERS
+
+    const innerRadiusMeters =
+      shellState.innerRadiusA0 * A0_TO_METERS
 
     /*
     Constant-thickness shell:
-    The user controls outer radius.
-    Inner radius is computed so the shell gap remains fixed.
+    The user controls outer radius. Inner radius is computed so the shell
+    gap remains fixed.
     */
     outerShell.scale.setScalar(outerRadiusMeters)
     innerShell.scale.setScalar(innerRadiusMeters)
@@ -212,8 +225,7 @@ export function createSOrbitalSimulation(app) {
 
     /*
     Yaw-only billboard:
-    The graph turns left/right to face the camera,
-    but it stays vertically upright.
+    The graph turns left/right to face the camera, but remains upright.
     */
     GRAPH_LOOK_TARGET.copy(CAMERA_WORLD_POSITION)
     GRAPH_LOOK_TARGET.y = GRAPH_WORLD_POSITION.y
@@ -242,11 +254,18 @@ export function createSOrbitalSimulation(app) {
 
   return {
     name: 's-orbitals',
+
     group,
     simulationRoot,
     contentAnchor,
+
     desktopOrbitTarget: simulationRoot,
-    desktopOrbitOffset: new THREE.Vector3(0, CONTENT_HEIGHT, 0),
+    desktopOrbitOffset: new THREE.Vector3(
+      0,
+      CONTENT_HEIGHT,
+      0,
+    ),
+
     orbitTarget: contentAnchor,
 
     enter() {
@@ -259,9 +278,7 @@ export function createSOrbitalSimulation(app) {
     },
 
     handleInput(interactionState, context = {}) {
-      if (!context.isXR) {
-        return
-      }
+      if (!context.isXR) return
 
       radialScaleControl.update(interactionState)
     },
@@ -274,6 +291,31 @@ export function createSOrbitalSimulation(app) {
 
       if (isXR) {
         updateGraphBillboard()
+      }
+    },
+
+    /**
+     * Optional web-touch binding consumed by TouchViewportControls.
+     * The touch controller only sees a generic numeric parameter and does not
+     * need to know that the value represents an orbital shell radius.
+     */
+    getTouchControls() {
+      return {
+        pinchParameter: {
+          getValue: () => shellState.outerRadiusA0,
+
+          setValue(nextRadiusA0) {
+            return radialScaleControl.setValue(
+              nextRadiusA0,
+              'touch-pinch',
+            )
+          },
+
+          minValue: SHELL_THICKNESS_A0,
+          maxValue: R_MAX_A0,
+          fullRangePinchDistancePx:
+            TOUCH_FULL_RANGE_PINCH_DISTANCE_PX,
+        },
       }
     },
 

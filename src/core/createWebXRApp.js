@@ -4,7 +4,8 @@ import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
 
-import { DesktopOrbitFallback } from '../systems/navigation/DesktopOrbitFallback.js'
+import { OrbitCameraController } from '../systems/navigation/OrbitCameraController.js'
+import { TouchViewportControls } from '../systems/navigation/TouchViewportControls.js'
 import { HandDebugSystem } from '../systems/debug/HandDebugSystem.js'
 import { XRDebugPanel } from '../systems/debug/XRDebugPanel.js'
 import { HandLocomotionGestureSystem } from '../systems/locomotion/HandLocomotionGestureSystem.js'
@@ -203,23 +204,64 @@ export function createWebXRApp(options = {}) {
 
   const xrDebugPanel = new XRDebugPanel(camera)
 
-  const desktopFallback = new DesktopOrbitFallback(camera, {
+  let activeSimulation = null
+
+  const orbitCameraController = new OrbitCameraController(camera, {
     orbitSpeed: options.desktopOrbitSpeed ?? 1.5,
     dollySpeed: options.desktopDollySpeed ?? 2.0,
     minDistance: options.desktopMinDistance ?? 0.75,
     maxDistance: options.desktopMaxDistance ?? 12,
+    defaultDistance: options.desktopDefaultDistance ?? 2,
+
+    idleOrbitEnabled:
+      options.desktopIdleOrbitEnabled ?? true,
+    idleOrbitSpeed: THREE.MathUtils.degToRad(
+      options.desktopIdleOrbitDegreesPerSecond ?? 3,
+    ),
+    idleOrbitDelay:
+      options.desktopIdleOrbitDelaySeconds ?? 7,
   })
 
-  const updateCallbacks = []
+  const touchViewportControls = new TouchViewportControls({
+    element: renderer.domElement,
+    orbitCameraController,
 
-  let activeSimulation = null
+    dragActivationPixels:
+      options.touchDragActivationPixels ?? 8,
+    orbitRadiansPerPixel:
+      options.touchOrbitRadiansPerPixel ?? 0.006,
+    dollyDistancePerPixel:
+      options.touchDollyDistancePerPixel ?? 0.01,
+    defaultFullRangePinchDistancePx:
+      options.touchPinchFullRangeDistancePx ?? 220,
+
+    getPinchBinding: () => {
+      return (
+        activeSimulation?.getTouchControls?.()
+          ?.pinchParameter ?? null
+      )
+    },
+
+    isEnabled: () => !renderer.xr.isPresenting,
+  })
+
+  function handleXRSessionStart() {
+    touchViewportControls.reset()
+  }
+
+  renderer.xr.addEventListener(
+    'sessionstart',
+    handleXRSessionStart,
+  )
+
+  const updateCallbacks = []
 
   function onUpdate(callback) {
     updateCallbacks.push(callback)
   }
 
   function setDesktopOrbitTarget(target, targetOffset = null) {
-    desktopFallback.setTarget(target, targetOffset)
+    orbitCameraController.setTarget(target, targetOffset)
   }
 
   function resetPlayerTransform() {
@@ -229,7 +271,8 @@ export function createWebXRApp(options = {}) {
     camera.position.set(0, 1.6, 3)
     camera.rotation.set(0, 0, 0)
 
-    desktopFallback.reset()
+    touchViewportControls.reset()
+    orbitCameraController.resetView()
   }
 
   function getActiveSimulation() {
@@ -429,7 +472,7 @@ export function createWebXRApp(options = {}) {
 
         handInteractionSystem.update()
       } else {
-        desktopFallback.update(deltaTime)
+        orbitCameraController.update(deltaTime)
         locomotionState = getDesktopLocomotionState()
         handInteractionSystem.reset()
       }
@@ -483,7 +526,13 @@ export function createWebXRApp(options = {}) {
     window.removeEventListener('resize', resize)
     resizeObserver.disconnect()
 
-    desktopFallback.dispose()
+    renderer.xr.removeEventListener(
+      'sessionstart',
+      handleXRSessionStart,
+    )
+
+    touchViewportControls.dispose()
+    orbitCameraController.dispose()
 
     if (activeSimulation?.exit) {
       activeSimulation.exit()
@@ -504,7 +553,11 @@ export function createWebXRApp(options = {}) {
     playerRig,
     renderer,
 
-    desktopFallback,
+    orbitCameraController,
+    touchViewportControls,
+
+    // Temporary compatibility alias for code that still expects the old name.
+    desktopFallback: orbitCameraController,
 
     handLocomotionGestureSystem,
     handLocomotionSystem,

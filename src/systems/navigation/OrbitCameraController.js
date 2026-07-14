@@ -3,8 +3,19 @@ import * as THREE from 'three'
 const TEMP_TARGET_POSITION = new THREE.Vector3()
 const TEMP_CAMERA_OFFSET = new THREE.Vector3()
 
-export class DesktopOrbitFallback {
+/**
+ * Owns the non-XR orbit camera state and transform.
+ *
+ * Keyboard, mouse, and touch inputs all call the same orbit/dolly methods.
+ * When the camera has not received user input for a configurable delay, it
+ * resumes a slow automatic orbit around the active simulation.
+ */
+export class OrbitCameraController {
   constructor(camera, options = {}) {
+    if (!camera) {
+      throw new Error('OrbitCameraController requires a camera')
+    }
+
     this.camera = camera
 
     this.target = options.target ?? new THREE.Vector3(0, 0, -2)
@@ -23,7 +34,12 @@ export class DesktopOrbitFallback {
       dollySpeed: options.dollySpeed ?? 2.0,
       minDistance: options.minDistance ?? 0.75,
       maxDistance: options.maxDistance ?? 12.0,
-      defaultDistance: options.defaultDistance ?? 2,
+      defaultDistance: options.defaultDistance ?? 2.0,
+
+      idleOrbitEnabled: options.idleOrbitEnabled ?? true,
+      idleOrbitSpeed:
+        options.idleOrbitSpeed ?? THREE.MathUtils.degToRad(3),
+      idleOrbitDelay: options.idleOrbitDelay ?? 7.0,
     }
 
     this.state = {
@@ -31,6 +47,10 @@ export class DesktopOrbitFallback {
       angle: 0,
       distance: this.settings.defaultDistance,
       height: 1.6,
+
+      // Begin auto-orbiting immediately on initial load and after a view reset.
+      idleElapsed: this.settings.idleOrbitDelay,
+      activeInteractionCount: 0,
     }
 
     this.handleKeyDown = this.handleKeyDown.bind(this)
@@ -52,19 +72,14 @@ export class DesktopOrbitFallback {
     this.resetView()
   }
 
-  /**
-   * Marks the orbit state for reinitialization on the next update.
-   *
-   * This preserves the existing behavior used when changing simulations.
-   */
   resetView() {
     this.state.initialized = false
+    this.state.idleElapsed = this.settings.idleOrbitDelay
+    this.state.activeInteractionCount = 0
     this.clearKeyboardInput()
   }
 
-  /**
-   * Retained as an alias so existing calls to reset() continue working.
-   */
+  // Compatibility with older code that called reset().
   reset() {
     this.resetView()
   }
@@ -74,6 +89,31 @@ export class DesktopOrbitFallback {
     this.keys.back = false
     this.keys.left = false
     this.keys.right = false
+  }
+
+  notifyInteraction() {
+    this.state.idleElapsed = 0
+  }
+
+  /**
+   * Prevents idle orbit while an external pointer gesture is held active.
+   * Calls are counted so this remains safe if more input systems are added.
+   */
+  beginInteraction() {
+    this.state.activeInteractionCount += 1
+    this.notifyInteraction()
+  }
+
+  /**
+   * Releases one external interaction lock and restarts the idle delay.
+   */
+  endInteraction() {
+    this.state.activeInteractionCount = Math.max(
+      0,
+      this.state.activeInteractionCount - 1,
+    )
+
+    this.notifyInteraction()
   }
 
   setKey(code, pressed) {
@@ -102,18 +142,21 @@ export class DesktopOrbitFallback {
 
   handleKeyDown(event) {
     if (this.setKey(event.code, true)) {
+      this.notifyInteraction()
       event.preventDefault()
     }
   }
 
   handleKeyUp(event) {
     if (this.setKey(event.code, false)) {
+      this.notifyInteraction()
       event.preventDefault()
     }
   }
 
   handleWindowBlur() {
     this.clearKeyboardInput()
+    this.notifyInteraction()
   }
 
   getTargetPosition() {
@@ -165,32 +208,24 @@ export class DesktopOrbitFallback {
   }
 
   /**
-   * Applies an immediate angular change around the current target.
-   *
-   * Positive values orbit right.
-   * Negative values orbit left.
+   * Positive values orbit right; negative values orbit left.
    */
   applyOrbitDelta(deltaRadians) {
-    if (!Number.isFinite(deltaRadians)) {
-      return
-    }
+    if (!Number.isFinite(deltaRadians)) return
 
     this.ensureInitialized()
+    this.notifyInteraction()
     this.state.angle += deltaRadians
   }
 
   /**
-   * Applies an immediate distance change from the current target.
-   *
-   * Positive values move farther away.
-   * Negative values move closer.
+   * Positive values move farther away; negative values move closer.
    */
   applyDollyDelta(deltaDistance) {
-    if (!Number.isFinite(deltaDistance)) {
-      return
-    }
+    if (!Number.isFinite(deltaDistance)) return
 
     this.ensureInitialized()
+    this.notifyInteraction()
 
     this.state.distance = THREE.MathUtils.clamp(
       this.state.distance + deltaDistance,
@@ -224,13 +259,29 @@ export class DesktopOrbitFallback {
       (this.keys.back ? 1 : 0) -
       (this.keys.forward ? 1 : 0)
 
-    this.applyOrbitDelta(
-      orbitInput * this.settings.orbitSpeed * deltaTime,
-    )
+    const hasKeyboardInput =
+      orbitInput !== 0 || dollyInput !== 0
 
-    this.applyDollyDelta(
-      dollyInput * this.settings.dollySpeed * deltaTime,
-    )
+    if (hasKeyboardInput) {
+      this.applyOrbitDelta(
+        orbitInput * this.settings.orbitSpeed * deltaTime,
+      )
+
+      this.applyDollyDelta(
+        dollyInput * this.settings.dollySpeed * deltaTime,
+      )
+    } else if (this.state.activeInteractionCount === 0) {
+      this.state.idleElapsed += deltaTime
+
+      if (
+        this.settings.idleOrbitEnabled &&
+        this.state.idleElapsed >= this.settings.idleOrbitDelay
+      ) {
+        // Modify the angle directly so idle motion does not reset its own timer.
+        this.state.angle +=
+          this.settings.idleOrbitSpeed * deltaTime
+      }
+    }
 
     this.updateCameraTransform()
   }
@@ -241,5 +292,6 @@ export class DesktopOrbitFallback {
     window.removeEventListener('blur', this.handleWindowBlur)
 
     this.clearKeyboardInput()
+    this.state.activeInteractionCount = 0
   }
 }
