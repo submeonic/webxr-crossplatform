@@ -6,10 +6,12 @@ import {
 } from './drawRadialGraph.js'
 
 export function createDesktopRadialGraph({
-  containerId = 's-orbitals-desktop-graph',
+  containerId,
   samples,
+  graphConfig,
+  ariaLabel = 'Orbital radial probability graph',
   minRadiusA0 = 0,
-  maxRadiusA0 = 5,
+  maxRadiusA0 = graphConfig?.xMaxA0 ?? 12,
   onRadiusChange = null,
 } = {}) {
   const container = document.getElementById(containerId)
@@ -26,13 +28,13 @@ export function createDesktopRadialGraph({
   const ctx = canvas.getContext('2d')
 
   canvas.setAttribute('role', 'img')
-  canvas.setAttribute('aria-label', 'S orbital radial probability graph')
+  canvas.setAttribute('aria-label', ariaLabel)
 
   container.innerHTML = ''
   container.appendChild(canvas)
 
   let latestState = {
-    orbitalType: '1s',
+    orbitalType: graphConfig?.activeDatasetId ?? '1s',
     innerRadiusA0: 0,
     outerRadiusA0: 0,
     highlightedCount: 0,
@@ -44,35 +46,30 @@ export function createDesktopRadialGraph({
 
   function resize() {
     if (disposed) {
-        return
+      return
     }
 
     const devicePixelRatio = window.devicePixelRatio || 1
-
-    /*
-    Use clientWidth/clientHeight instead of getBoundingClientRect().
-    This avoids feeding the container's border-box size back into the
-    child canvas size, which can create an infinite vertical growth loop.
-    */
     const cssWidth = Math.max(1, container.clientWidth)
-    const cssHeight = cssWidth * (RADIAL_GRAPH_LOGICAL_HEIGHT / RADIAL_GRAPH_LOGICAL_WIDTH)
+    const cssHeight =
+      cssWidth *
+      (RADIAL_GRAPH_LOGICAL_HEIGHT /
+        RADIAL_GRAPH_LOGICAL_WIDTH)
 
-    const nextCanvasWidth = Math.round(cssWidth * devicePixelRatio)
-    const nextCanvasHeight = Math.round(cssHeight * devicePixelRatio)
+    const nextCanvasWidth = Math.round(
+      cssWidth * devicePixelRatio,
+    )
+    const nextCanvasHeight = Math.round(
+      cssHeight * devicePixelRatio,
+    )
 
     if (
-        canvas.width !== nextCanvasWidth ||
-        canvas.height !== nextCanvasHeight
+      canvas.width !== nextCanvasWidth ||
+      canvas.height !== nextCanvasHeight
     ) {
-        canvas.width = nextCanvasWidth
-        canvas.height = nextCanvasHeight
+      canvas.width = nextCanvasWidth
+      canvas.height = nextCanvasHeight
     }
-
-    /*
-    Do not set canvas.style.width or canvas.style.height here.
-    Let CSS control the displayed size:
-        .desktop-radial-graph canvas { width: 100%; height: 100%; }
-    */
 
     draw()
   }
@@ -87,25 +84,19 @@ export function createDesktopRadialGraph({
   }
 
   function draw() {
-    if (disposed) {
+    if (disposed || canvas.width <= 0 || canvas.height <= 0) {
       return
     }
 
-    const width = canvas.width
-    const height = canvas.height
-
-    if (width <= 0 || height <= 0) {
-      return
-    }
-
-    const scaleX = width / RADIAL_GRAPH_LOGICAL_WIDTH
-    const scaleY = height / RADIAL_GRAPH_LOGICAL_HEIGHT
+    const scaleX = canvas.width / RADIAL_GRAPH_LOGICAL_WIDTH
+    const scaleY = canvas.height / RADIAL_GRAPH_LOGICAL_HEIGHT
 
     ctx.save()
     ctx.setTransform(scaleX, 0, 0, scaleY, 0, 0)
 
     drawRadialGraph(ctx, {
       state: latestState,
+      graphConfig,
       width: RADIAL_GRAPH_LOGICAL_WIDTH,
       height: RADIAL_GRAPH_LOGICAL_HEIGHT,
     })
@@ -119,11 +110,19 @@ export function createDesktopRadialGraph({
 
   function pointerToRadiusA0(event) {
     const rect = canvas.getBoundingClientRect()
-    const normalizedX = (event.clientX - rect.left) / Math.max(1, rect.width)
-    const logicalX = normalizedX * RADIAL_GRAPH_LOGICAL_WIDTH
+    const normalizedX =
+      (event.clientX - rect.left) /
+      Math.max(1, rect.width)
+    const logicalX =
+      normalizedX * RADIAL_GRAPH_LOGICAL_WIDTH
 
     return clamp(
-      graphXToRadiusA0(logicalX, RADIAL_GRAPH_LOGICAL_WIDTH),
+      graphXToRadiusA0(
+        logicalX,
+        RADIAL_GRAPH_LOGICAL_WIDTH,
+        graphConfig?.xMinA0 ?? 0,
+        graphConfig?.xMaxA0 ?? maxRadiusA0,
+      ),
       minRadiusA0,
       maxRadiusA0,
     )
@@ -138,6 +137,10 @@ export function createDesktopRadialGraph({
   }
 
   function handlePointerDown(event) {
+    if (event.pointerType === 'mouse' && event.button !== 0) {
+      return
+    }
+
     isDragging = true
     canvas.setPointerCapture(event.pointerId)
     applyPointerRadius(event)
@@ -171,7 +174,6 @@ export function createDesktopRadialGraph({
 
   function dispose() {
     disposed = true
-
     resizeObserver.disconnect()
 
     canvas.removeEventListener('pointerdown', handlePointerDown)
@@ -199,6 +201,6 @@ function createDisabledDesktopGraph() {
   }
 }
 
-function clamp(value, minValue, maxValue) {
-  return Math.min(Math.max(value, minValue), maxValue)
+function clamp(value, minimum, maximum) {
+  return Math.min(Math.max(value, minimum), maximum)
 }

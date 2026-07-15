@@ -12,6 +12,7 @@ import { HandLocomotionGestureSystem } from '../systems/locomotion/HandLocomotio
 import { HandLocomotionSystem } from '../systems/locomotion/HandLocomotionSystem.js'
 import { HandLocomotionIndicator } from '../systems/locomotion/HandLocomotionIndicator.js'
 import { HandInteractionSystem } from '../systems/interaction/HandInteractionSystem.js'
+import { PinchDragIndicator } from '../systems/interaction/PinchDragIndicator.js'
 
 export function createWebXRApp(options = {}) {
   const container = options.container
@@ -69,6 +70,24 @@ export function createWebXRApp(options = {}) {
     xrButtonContainer.classList.toggle('xr-checking', isChecking)
     xrButtonContainer.classList.toggle('xr-available', isAvailable)
     xrButtonContainer.classList.toggle('xr-unavailable', isUnavailable)
+
+    // VRButton writes its own inline display styles, while the site stylesheet
+    // also styles the button with display: inline-flex !important. Hide the
+    // entire container with an inline !important declaration so unsupported
+    // browsers never show the large "WEBXR NOT AVAILABLE" fallback button.
+    if (isAvailable) {
+      xrButtonContainer.hidden = false
+      xrButton.hidden = false
+      xrButtonContainer.style.removeProperty('display')
+    } else {
+      xrButton.hidden = true
+      xrButtonContainer.hidden = true
+      xrButtonContainer.style.setProperty(
+        'display',
+        'none',
+        'important',
+      )
+    }
 
     if (!viewerStatus) return
 
@@ -192,6 +211,14 @@ export function createWebXRApp(options = {}) {
 
   const handInteractionSystem = new HandInteractionSystem(renderer, camera)
 
+  const pinchDragIndicator = new PinchDragIndicator(scene, camera, {
+    color: options.pinchDragIndicatorColor ?? 0xfff7ae,
+    markerRadius: options.pinchDragMarkerRadius ?? 0.012,
+    lineLength: options.pinchDragLineLength ?? 0.11,
+    maximumVisualDisplacement:
+      options.pinchDragMaximumVisualDisplacement ?? 0.16,
+  })
+
   const handDebugSystem = new HandDebugSystem(playerRig, renderer, {
     showJoints: options.showHandDebugJoints ?? false,
     showAxes: options.showHandDebugAxes ?? false,
@@ -261,13 +288,28 @@ export function createWebXRApp(options = {}) {
     isEnabled: () => !renderer.xr.isPresenting,
   })
 
+  function resetActiveXRInteraction(reason) {
+    activeSimulation?.resetXRInteraction?.(reason)
+    pinchDragIndicator.hide()
+  }
+
   function handleXRSessionStart() {
     webInteractionController.reset()
+    resetActiveXRInteraction('xr-session-start')
+  }
+
+  function handleXRSessionEnd() {
+    resetActiveXRInteraction('xr-session-end')
+    handInteractionSystem.reset()
   }
 
   renderer.xr.addEventListener(
     'sessionstart',
     handleXRSessionStart,
+  )
+  renderer.xr.addEventListener(
+    'sessionend',
+    handleXRSessionEnd,
   )
 
   const updateCallbacks = []
@@ -320,6 +362,16 @@ export function createWebXRApp(options = {}) {
       activeSimulation?.desktopOrbitOffset ??
       new THREE.Vector3(0, 1.45, 0)
 
+    const webInitialCameraDistance =
+      activeSimulation?.webInitialCameraDistance ??
+      options.desktopDefaultDistance ??
+      2
+
+    orbitCameraController.setDefaultDistance(
+      webInitialCameraDistance,
+      { resetView: false },
+    )
+
     if (desktopOrbitTarget) {
       setDesktopOrbitTarget(desktopOrbitTarget, desktopOrbitOffset)
     }
@@ -327,8 +379,13 @@ export function createWebXRApp(options = {}) {
     const interactionProfile =
       getActiveWebInteractionProfile()
 
+    const idleCameraOrbitEnabled =
+      activeSimulation?.idleCameraOrbit ??
+      interactionProfile?.idleCameraOrbit ??
+      true
+
     orbitCameraController.setIdleOrbitEnabled(
-      interactionProfile?.idleCameraOrbit !== false,
+      idleCameraOrbitEnabled,
     )
   }
 
@@ -475,32 +532,52 @@ export function createWebXRApp(options = {}) {
   function start() {
     renderer.setAnimationLoop(() => {
       const deltaTime = clock.getDelta()
+      const isXR = renderer.xr.isPresenting
 
       let locomotionState
-
-      const isXR = renderer.xr.isPresenting
+      let interactionState
 
       updateXRHandModelVisibility(isXR)
 
       if (isXR) {
         handLocomotionGestureSystem.update()
-
-        locomotionState = handLocomotionSystem.update(deltaTime, {
-          fallbackIntent: {
-            moveX: 0,
-            moveZ: 0,
-            turnY: 0,
-          },
-        })
-
         handInteractionSystem.update()
+        interactionState = handInteractionSystem.getState()
+
+        const inputContext = {
+          app: publicApi,
+          deltaTime,
+          isXR: true,
+          locomotionState: null,
+          interactionState,
+        }
+
+        activeSimulation?.handleInput?.(
+          interactionState,
+          inputContext,
+        )
+
+        const simulationOwnsXRInput = Boolean(
+          activeSimulation?.isXRInteractionActive?.(),
+        )
+
+        locomotionState = handLocomotionSystem.update(
+          deltaTime,
+          {
+            fallbackIntent: {
+              moveX: 0,
+              moveZ: 0,
+              turnY: 0,
+            },
+            suppressHands: simulationOwnsXRInput,
+          },
+        )
       } else {
         orbitCameraController.update(deltaTime)
         locomotionState = getDesktopLocomotionState()
         handInteractionSystem.reset()
+        interactionState = handInteractionSystem.getState()
       }
-
-      const interactionState = handInteractionSystem.getState()
 
       handLocomotionIndicator.update({
         activeHand: locomotionState.activeHand,
@@ -516,13 +593,7 @@ export function createWebXRApp(options = {}) {
         interactionState,
       }
 
-      if (activeSimulation?.handleInput) {
-        activeSimulation.handleInput(interactionState, simulationContext)
-      }
-
-      if (activeSimulation?.update) {
-        activeSimulation.update(deltaTime, simulationContext)
-      }
+      activeSimulation?.update?.(deltaTime, simulationContext)
 
       for (const callback of updateCallbacks) {
         callback(deltaTime, simulationContext)
@@ -538,7 +609,6 @@ export function createWebXRApp(options = {}) {
       }
 
       renderer.render(scene, camera)
-
       handInteractionSystem.resetTransientState()
     })
   }
@@ -553,7 +623,13 @@ export function createWebXRApp(options = {}) {
       'sessionstart',
       handleXRSessionStart,
     )
+    renderer.xr.removeEventListener(
+      'sessionend',
+      handleXRSessionEnd,
+    )
 
+    resetActiveXRInteraction('app-dispose')
+    pinchDragIndicator.dispose()
     webInteractionController.dispose()
     orbitCameraController.dispose()
 
@@ -587,6 +663,7 @@ export function createWebXRApp(options = {}) {
     handLocomotionSystem,
     handLocomotionIndicator,
     handInteractionSystem,
+    pinchDragIndicator,
     handDebugSystem,
     xrDebugPanel,
 

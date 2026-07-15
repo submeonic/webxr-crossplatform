@@ -1,4 +1,4 @@
-const BOHR_RADIUS_ANGSTROM = 0.529177
+import { BOHR_RADIUS_ANGSTROM } from '../data/sOrbitalDistributions.js'
 
 export const RADIAL_GRAPH_LOGICAL_WIDTH = 500
 export const RADIAL_GRAPH_LOGICAL_HEIGHT = 400
@@ -6,8 +6,10 @@ export const RADIAL_GRAPH_LOGICAL_HEIGHT = 400
 const GRAPH_LEFT = 60
 const GRAPH_RIGHT_PADDING = 30
 const GRAPH_TOP = 104
-const GRAPH_BOTTOM_PADDING = 58
+const GRAPH_BOTTOM = 342
 const GRAPH_X_MAX = 600
+const GRAPH_INDEX_PER_A0 = 50
+const ACTIVE_BAR_STEP = 10
 
 const FONT_DISPLAY = '"Agency FB", Impact, "Arial Narrow", sans-serif'
 const FONT_BODY = '"Bai Jamjuree", Arial, Helvetica, sans-serif'
@@ -15,57 +17,59 @@ const FONT_BODY = '"Bai Jamjuree", Arial, Helvetica, sans-serif'
 const COLORS = {
   background: '#121212',
   brand: '#fff7ae',
+  green: '#6ecf7f',
   text: '#ffffff',
   mutedText: 'rgba(255, 255, 255, 0.68)',
-  faintText: 'rgba(255, 255, 255, 0.48)',
   line: 'rgba(255, 255, 255, 0.14)',
   axis: 'rgba(255, 255, 255, 0.86)',
   selection: '#ffffff',
 }
 
-/*
-Original graph math:
-graph_1s(i) = 4 / 2500 * i^2 * exp(-i / 50) * exp(-i / 50)
-
-With i = 50r, this is proportional to:
-4r^2 e^(-2r)
-*/
-export function graph1s(index) {
-  return (
-    (4 / 2500) *
-    index *
-    index *
-    Math.exp(-index / 50) *
-    Math.exp(-index / 50)
-  )
-}
-
-export function radiusA0ToGraphX(radiusA0, width = RADIAL_GRAPH_LOGICAL_WIDTH) {
-  const graphIndex = radiusA0 * 50
-
+export function radiusA0ToGraphX(
+  radiusA0,
+  width = RADIAL_GRAPH_LOGICAL_WIDTH,
+  xMinA0 = 0,
+  xMaxA0 = 12,
+) {
   return map(
-    graphIndex,
-    0,
-    GRAPH_X_MAX,
+    radiusA0,
+    xMinA0,
+    xMaxA0,
     GRAPH_LEFT,
     width - GRAPH_RIGHT_PADDING,
   )
 }
 
-export function graphXToRadiusA0(x, width = RADIAL_GRAPH_LOGICAL_WIDTH) {
-  const graphIndex = map(
+export function graphXToRadiusA0(
+  x,
+  width = RADIAL_GRAPH_LOGICAL_WIDTH,
+  xMinA0 = 0,
+  xMaxA0 = 12,
+) {
+  return map(
     x,
     GRAPH_LEFT,
     width - GRAPH_RIGHT_PADDING,
-    0,
-    GRAPH_X_MAX,
+    xMinA0,
+    xMaxA0,
   )
-
-  return graphIndex / 50
 }
 
+/**
+ * Shared 1s/2s radial graph renderer.
+ *
+ * Visual language:
+ * - compact count/radius readout above the plot
+ * - no grid
+ * - vertical bars for the active orbital
+ * - faint point trace for comparison datasets
+ * - shared axes and y scale
+ * - white Bohr-radius marker
+ * - white selected-radius line with a draggable cue dot
+ */
 export function drawRadialGraph(ctx, {
   state,
+  graphConfig,
   width = RADIAL_GRAPH_LOGICAL_WIDTH,
   height = RADIAL_GRAPH_LOGICAL_HEIGHT,
 } = {}) {
@@ -78,77 +82,143 @@ export function drawRadialGraph(ctx, {
     ...state,
   }
 
-  const xMin = 0
-  const xMax = GRAPH_X_MAX
-  const yMin = 0
+  const safeConfig = normalizeGraphConfig(graphConfig)
+  const datasets = buildDatasets(safeConfig)
+  const activeDataset = datasets.find(
+    (dataset) => dataset.id === safeConfig.activeDatasetId,
+  ) ?? datasets[0]
 
-  let yMax = 0
-  const dataset = []
-  let peakIndex = 0
+  const comparisonDatasets = datasets.filter(
+    (dataset) => dataset !== activeDataset,
+  )
 
-  for (let i = 0; i < GRAPH_X_MAX; i++) {
-    const y = graph1s(i)
+  const yMaximum = resolveYMaximum(safeConfig, datasets)
 
-    dataset.push({
-      x: i,
-      y,
-    })
-
-    if (y > yMax) {
-      yMax = y
-      peakIndex = i
-    }
-  }
-
-  const xScale = (x) => map(
-    x,
-    xMin,
-    xMax,
+  const xScale = (graphIndex) => map(
+    graphIndex,
+    0,
+    GRAPH_X_MAX,
     GRAPH_LEFT,
     width - GRAPH_RIGHT_PADDING,
   )
 
-  const yScale = (y) => map(
-    y,
-    yMin,
-    yMax,
-    height - GRAPH_BOTTOM_PADDING,
+  const yScale = (value) => map(
+    value,
+    safeConfig.yMin,
+    yMaximum,
+    GRAPH_BOTTOM,
     GRAPH_TOP,
   )
 
   ctx.clearRect(0, 0, width, height)
+  ctx.fillStyle = safeConfig.backgroundColor
+  ctx.fillRect(0, 0, width, height)
 
   drawTopInfo(ctx, safeState, width)
-  drawAxes(ctx, width, height)
+  drawAxes(ctx, width)
   drawAxisLabels(ctx, width, height)
-  draw1sBars(ctx, dataset, xScale, yScale, height)
-  drawBohrRadiusMarker(ctx, dataset[peakIndex], xScale, yScale, height)
-  drawSelectionLine(ctx, safeState, yScale, height, width)
-  drawGraphLabel(ctx, safeState, xScale)
+
+  for (const dataset of comparisonDatasets) {
+    drawComparisonTrace(ctx, dataset, xScale, yScale)
+  }
+
+  if (activeDataset) {
+    drawActiveBars(ctx, activeDataset, xScale, yScale)
+  }
+
+  drawBohrRadiusMarker(ctx, datasets, xScale, yScale, height)
+  drawSelectionLine(
+    ctx,
+    safeState,
+    activeDataset,
+    xScale,
+    yScale,
+    width,
+  )
+  drawLegend(ctx, datasets, xScale)
 }
 
+function normalizeGraphConfig(graphConfig = {}) {
+  const datasets = Array.isArray(graphConfig.datasets)
+    ? graphConfig.datasets.filter(
+      (dataset) => typeof dataset?.getValue === 'function',
+    )
+    : []
+
+  return {
+    xMinA0: 0,
+    xMaxA0: 12,
+    yMin: 0,
+    yMax: null,
+    activeDatasetId: datasets[0]?.id ?? null,
+    backgroundColor: COLORS.background,
+    datasets,
+    ...graphConfig,
+    datasets,
+  }
+}
+
+function buildDatasets(graphConfig) {
+  return graphConfig.datasets.map((dataset) => {
+    const points = []
+
+    for (let graphIndex = 0; graphIndex < GRAPH_X_MAX; graphIndex++) {
+      const radiusA0 = graphIndex / GRAPH_INDEX_PER_A0
+      const withinConfiguredRange =
+        radiusA0 >= graphConfig.xMinA0 &&
+        radiusA0 <= graphConfig.xMaxA0
+
+      points.push({
+        graphIndex,
+        radiusA0,
+        value: withinConfiguredRange
+          ? Math.max(0, dataset.getValue(radiusA0) || 0)
+          : 0,
+      })
+    }
+
+    return { ...dataset, points }
+  })
+}
+
+function resolveYMaximum(graphConfig, datasets) {
+  if (
+    Number.isFinite(graphConfig.yMax) &&
+    graphConfig.yMax > graphConfig.yMin
+  ) {
+    return graphConfig.yMax
+  }
+
+  let maximum = 0
+
+  for (const dataset of datasets) {
+    for (const point of dataset.points) {
+      maximum = Math.max(maximum, point.value)
+    }
+  }
+
+  return Math.max(0.000001, maximum)
+}
 
 function drawTopInfo(ctx, state, width) {
-  const radiusA0 = state.outerRadiusA0
-  const radiusAngstrom = radiusA0 * BOHR_RADIUS_ANGSTROM
+  const radiusAngstrom =
+    state.outerRadiusA0 * BOHR_RADIUS_ANGSTROM
   const centerX = width * 0.5
 
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
 
-  /*
-  Header-style number: matches the site's display/title feel.
-  */
   ctx.fillStyle = COLORS.brand
   ctx.font = `bold 34px ${FONT_DISPLAY}`
   ctx.fillText(`${state.highlightedCount}`, centerX, 32)
 
-  /*
-  Body-style subtitle.
-  */
   ctx.fillStyle = COLORS.mutedText
   ctx.font = `600 14px ${FONT_BODY}`
-  ctx.fillText('measurements in selected region', centerX, 53)
+  ctx.fillText(
+    'measurements in selected region',
+    centerX,
+    53,
+  )
 
   ctx.fillStyle = COLORS.text
   ctx.font = `600 14px ${FONT_BODY}`
@@ -166,127 +236,189 @@ function drawTopInfo(ctx, state, width) {
   ctx.stroke()
 }
 
-function drawAxes(ctx, width, height) {
-  const axisX = GRAPH_LEFT
-  const axisY = height - GRAPH_BOTTOM_PADDING
-
+function drawAxes(ctx, width) {
   ctx.strokeStyle = COLORS.axis
   ctx.lineWidth = 1.25
 
   ctx.beginPath()
-  ctx.moveTo(axisX, axisY)
-  ctx.lineTo(width - GRAPH_RIGHT_PADDING, axisY)
+  ctx.moveTo(GRAPH_LEFT, GRAPH_BOTTOM)
+  ctx.lineTo(width - GRAPH_RIGHT_PADDING, GRAPH_BOTTOM)
   ctx.stroke()
 
   ctx.beginPath()
-  ctx.moveTo(axisX, axisY)
-  ctx.lineTo(axisX, GRAPH_TOP)
+  ctx.moveTo(GRAPH_LEFT - 2, GRAPH_BOTTOM)
+  ctx.lineTo(GRAPH_LEFT - 2, GRAPH_TOP - 6)
   ctx.stroke()
 }
 
 function drawAxisLabels(ctx, width, height) {
   ctx.fillStyle = COLORS.text
-  ctx.font = `600 15px ${FONT_BODY}`
+  ctx.font = `500 15px ${FONT_BODY}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'alphabetic'
 
   ctx.fillText('Distance from Nucleus', width / 2, height - 28)
 
   ctx.save()
-  ctx.translate(28, height / 2 + 18)
+  ctx.translate(28, (GRAPH_TOP + GRAPH_BOTTOM) * 0.5 + 16)
   ctx.rotate(-Math.PI / 2)
   ctx.fillText('No. of Measurements', 0, 0)
   ctx.restore()
-
-  ctx.textAlign = 'left'
 }
 
-function draw1sBars(ctx, dataset, xScale, yScale, height) {
-  ctx.strokeStyle = COLORS.brand
-  ctx.lineWidth = 1
+function drawActiveBars(ctx, dataset, xScale, yScale) {
+  ctx.save()
+  ctx.globalAlpha = dataset.opacity ?? 1
+  ctx.strokeStyle = dataset.color ?? COLORS.green
+  ctx.lineWidth = dataset.lineWidth ?? 1
 
-  for (const d of dataset) {
-    if (d.x % 10 !== 0) {
+  for (const point of dataset.points) {
+    if (point.graphIndex % ACTIVE_BAR_STEP !== 0) {
       continue
     }
 
-    const x = xScale(d.x)
-    const yTop = yScale(d.y)
-    const yBottom = height - GRAPH_BOTTOM_PADDING
+    const x = xScale(point.graphIndex)
+    const yTop = yScale(point.value)
 
     ctx.beginPath()
     ctx.moveTo(x, yTop)
-    ctx.lineTo(x, yBottom)
+    ctx.lineTo(x, GRAPH_BOTTOM)
     ctx.stroke()
   }
+
+  ctx.restore()
 }
 
-function drawBohrRadiusMarker(ctx, peakPoint, xScale, yScale, height) {
-  const x = xScale(peakPoint.x)
-  const yTop = yScale(peakPoint.y)
-  const yBottom = height - GRAPH_BOTTOM_PADDING
+function drawComparisonTrace(ctx, dataset, xScale, yScale) {
+  ctx.save()
+  ctx.globalAlpha = dataset.opacity ?? 0.1
+  ctx.fillStyle = dataset.color ?? COLORS.brand
+
+  for (const point of dataset.points) {
+    const x = xScale(point.graphIndex)
+    const y = yScale(point.value)
+
+    ctx.beginPath()
+    ctx.arc(x, y, dataset.pointRadius ?? 2, 0, Math.PI * 2)
+    ctx.fill()
+  }
+
+  ctx.restore()
+}
+
+function drawBohrRadiusMarker(ctx, datasets, xScale, yScale, height) {
+  const referenceDataset =
+    datasets.find((dataset) => dataset.id === '1s') ?? datasets[0]
+
+  if (!referenceDataset) {
+    return
+  }
+
+  const graphIndex = GRAPH_INDEX_PER_A0
+  const point = referenceDataset.points[graphIndex]
+  const x = xScale(graphIndex)
+  const yTop = yScale(point?.value ?? 0)
 
   ctx.strokeStyle = COLORS.text
   ctx.lineWidth = 2
   ctx.beginPath()
   ctx.moveTo(x, yTop)
-  ctx.lineTo(x, yBottom)
+  ctx.lineTo(x, GRAPH_BOTTOM)
   ctx.stroke()
 
   ctx.fillStyle = COLORS.text
-  ctx.font = `600 15px ${FONT_BODY}`
+  ctx.font = `500 15px ${FONT_BODY}`
   ctx.textAlign = 'left'
   ctx.textBaseline = 'alphabetic'
-  ctx.fillText('Bohr Radius', x + 14, height / 2 + 12)
+  ctx.fillText(
+    'Bohr Radius',
+    x + 14,
+    GRAPH_TOP + (GRAPH_BOTTOM - GRAPH_TOP) * 0.50,
+  )
 }
 
-function drawSelectionLine(ctx, state, yScale, height, width) {
-  const selectedRadiusA0 = state.outerRadiusA0
-
-  if (selectedRadiusA0 <= 0) {
+function drawSelectionLine(
+  ctx,
+  state,
+  activeDataset,
+  xScale,
+  yScale,
+  width,
+) {
+  if (!activeDataset || state.outerRadiusA0 <= 0) {
     return
   }
 
-  const graphIndex = selectedRadiusA0 * 50
-  const yValue = graph1s(graphIndex)
-  const x = radiusA0ToGraphX(selectedRadiusA0, width)
-  const yTop = yScale(yValue)
-  const yBottom = height - GRAPH_BOTTOM_PADDING
+  const graphIndex = state.outerRadiusA0 * GRAPH_INDEX_PER_A0
+  const value = Math.max(
+    0,
+    activeDataset.getValue(state.outerRadiusA0) || 0,
+  )
+  const x = radiusA0ToGraphX(
+    state.outerRadiusA0,
+    width,
+    0,
+    12,
+  )
+  const yTop = yScale(value)
 
-  /*
-  White vertical shell indicator line.
-  */
   ctx.strokeStyle = COLORS.selection
-  ctx.lineWidth = 3
+  ctx.lineWidth = 2
   ctx.beginPath()
-  ctx.moveTo(x, yBottom)
+  ctx.moveTo(x, GRAPH_BOTTOM)
   ctx.lineTo(x, yTop)
   ctx.stroke()
 
-  /*
-  Small draggable handle cue for desktop without making it look like a modern UI widget.
-  */
   ctx.fillStyle = COLORS.selection
   ctx.beginPath()
-  ctx.arc(x, yTop, 4, 0, Math.PI * 2)
+  ctx.arc(xScale(graphIndex), yTop, 4, 0, Math.PI * 2)
   ctx.fill()
 }
 
-function drawGraphLabel(ctx, state, xScale) {
-  const orbitalLabel = state.orbitalType ?? '1s'
+function drawLegend(ctx, datasets, xScale) {
+  const preferredOrder = ['1s', '2s']
+  const orderedDatasets = [...datasets].sort((a, b) => {
+    const aIndex = preferredOrder.indexOf(a.id)
+    const bIndex = preferredOrder.indexOf(b.id)
 
-  ctx.fillStyle = COLORS.brand
-  ctx.fillRect(xScale(500), 112, 16, 16)
+    if (aIndex === -1 && bIndex === -1) return 0
+    if (aIndex === -1) return 1
+    if (bIndex === -1) return -1
+    return aIndex - bIndex
+  })
 
-  ctx.fillStyle = COLORS.text
-  ctx.font = `600 16px ${FONT_BODY}`
-  ctx.textAlign = 'left'
-  ctx.textBaseline = 'alphabetic'
-  ctx.fillText(orbitalLabel, xScale(530), 126)
+  const labelX = xScale(500)
+  let labelY = GRAPH_TOP + 8
+
+  for (const dataset of orderedDatasets) {
+    ctx.save()
+    ctx.globalAlpha = 1
+    ctx.fillStyle = dataset.color ?? COLORS.brand
+    ctx.fillRect(labelX, labelY, 16, 16)
+    ctx.restore()
+
+    ctx.fillStyle = COLORS.text
+    ctx.font = `500 16px ${FONT_BODY}`
+    ctx.textAlign = 'left'
+    ctx.textBaseline = 'alphabetic'
+    ctx.fillText(dataset.label ?? dataset.id, labelX + 22, labelY + 14)
+
+    labelY += 30
+  }
+}
+
+export function formatRadialGraphReadout(state = {}) {
+  const outerRadiusA0 = Number.isFinite(state.outerRadiusA0)
+    ? state.outerRadiusA0
+    : 0
+
+  return {
+    highlightedCount: state.highlightedCount ?? 0,
+    radiusAngstrom: outerRadiusA0 * BOHR_RADIUS_ANGSTROM,
+  }
 }
 
 function map(value, inMin, inMax, outMin, outMax) {
   const t = (value - inMin) / Math.max(0.000001, inMax - inMin)
-
   return outMin + t * (outMax - outMin)
 }

@@ -4,8 +4,8 @@ import { createWebXRApp } from './core/createWebXRApp.js'
 import { ResponsiveViewerPlacementController } from './systems/navigation/ResponsiveViewerPlacementController.js'
 import { ScrollSimulationController } from './systems/navigation/ScrollSimulationController.js'
 
-import { createIntroSphereSimulation } from './simulations/intro-sphere/createIntroSphereSimulation.js'
-import { createSOrbitalSimulation } from './simulations/s-orbitals/createSOrbitalSimulation.js'
+import { create1SOrbitalSimulation } from './simulations/s-orbitals/create1SOrbitalSimulation.js'
+import { create2SOrbitalSimulation } from './simulations/s-orbitals/create2SOrbitalSimulation.js'
 import { createPOrbitalSimulation } from './simulations/p-orbitals/createPOrbitalSimulation.js'
 
 function initializeFadeInAnimations() {
@@ -33,19 +33,13 @@ initializeFadeInAnimations()
 const canvasContainer = document.getElementById(
   'xr-canvas-container',
 )
-
 const xrButtonContainer = document.getElementById(
   'xr-button-container',
 )
-
 const viewerElement = document.querySelector(
   '[data-simulation-viewer]',
 )
-
-const viewerStatus = document.querySelector(
-  '.viewer-status',
-)
-
+const viewerStatus = document.querySelector('.viewer-status')
 const desktopViewerSlot = document.querySelector(
   '[data-desktop-viewer-slot]',
 )
@@ -64,17 +58,29 @@ const app = createWebXRApp({
   webPinchDollyDistancePerPixel: 0.01,
   webWheelDollyDistancePerPixel: 0.0025,
 
-  // Idle camera presentation behavior. Negative speed reverses direction.
+  desktopMinDistance: 0.5,
+  desktopMaxDistance: 14,
+  desktopDefaultDistance: 2.65,
+
+  pinchDragIndicatorColor: 0xfff7ae,
+  pinchDragMarkerRadius: 0.012,
+  pinchDragLineLength: 0.11,
+  pinchDragMaximumVisualDisplacement: 0.16,
+
   desktopIdleOrbitEnabled: true,
-  desktopIdleOrbitDegreesPerSecond: 3,
-  desktopIdleOrbitDelaySeconds: 7,
+  desktopIdleOrbitDegreesPerSecond: 5,
+  desktopIdleOrbitDelaySeconds: 2,
 })
 
 const simulations = {
-  'intro-sphere': createIntroSphereSimulation(app),
-  's-orbitals': createSOrbitalSimulation(app),
-  'p-orbitals': createPOrbitalSimulation(app),
+  '1s-orbital': create1SOrbitalSimulation(app),
+  '2s-orbital': create2SOrbitalSimulation(app),
+  '2p-orbital': createPOrbitalSimulation(app),
 }
+
+// The future 2p interaction will manipulate its simulation root directly.
+// Keep both camera and object presentation completely still until then.
+simulations['2p-orbital'].idleCameraOrbit = false
 
 for (const simulation of Object.values(simulations)) {
   simulation.exit()
@@ -98,7 +104,7 @@ const scrollSimulationController =
     app,
     simulations,
     sectionSelector: '[data-simulation]',
-    initialSimulationName: 'intro-sphere',
+    initialSimulationName: '1s-orbital',
     logChanges: true,
 
     onSimulationChange: ({ simulationName }) => {

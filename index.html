@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LearnQM WebXR Template</title>
+    <title>Hydrogen Orbitals in 3D | LearnQM WebXR</title>
   </head>
 
   <body id="body_parent" class="noselect">
@@ -14,87 +14,129 @@
       </a>
 
       <header class="title-row fade-scroll">
-        <h1>LearnQM WebXR Template</h1>
+        <p class="eyebrow">Interactive WebXR companion to LearnQM Chapter 1</p>
+        <h1>Hydrogen Orbitals in 3D</h1>
         <p>
-          A cross-platform WebXR learning template for desktop, Meta Quest, and
-          Apple Vision-style spatial devices. Scroll through the lesson to swap
-          simulations, or enter XR to explore with hand-based locomotion.
+          This experience reinterprets the orbital simulations from LearnQM’s
+          semiconductor-physics chapter as interactive three-dimensional
+          probability clouds. Explore on a desktop or touch screen, or enter
+          WebXR to stand beside the atom and inspect how repeated electron
+          measurements fill space around the nucleus.
         </p>
       </header>
+
+      <section
+        class="tutorial-section fade-scroll"
+        aria-label="Interaction tutorial"
+      >
+        <p class="eyebrow">Interaction Tutorial</p>
+        <h2>Explore the Chapter Spatially</h2>
+        <p>
+          Each point in the viewer represents one possible result of
+          measuring an electron’s position. Orbit around the cloud to see
+          that its structure exists in every direction, then move the thin
+          spherical shell through the measurements to connect the 3D shape
+          with the radial graph below the lesson text.
+        </p>
+        <p>
+          On desktop, drag sideways to orbit, drag vertically to move the
+          shell, and scroll to zoom. On touch devices, use the same one-finger
+          drags and pinch to zoom. In WebXR, pinch and move vertically to
+          adjust the shell while the world-space guide shows the direction
+          and sensitivity of the control.
+        </p>
+
+        <!-- Future desktop, mobile, and XR interaction GIFs go here. -->
+      </section>
 
       <div class="content">
         <main class="lesson-content">
           <section
             class="lesson-section fade-scroll"
-            data-simulation="intro-sphere"
+            data-simulation="1s-orbital"
           >
             <p class="eyebrow">Simulation 01</p>
-            <h2>Gesture Locomotion</h2>
+            <h2>The 1s Orbital</h2>
             <p>
-              This template includes a shared WebXR shell, a sticky 3D viewer,
-              web orbit-camera navigation, and a thumb-controlled virtual D-pad
-              locomotion system for immersive XR.
+              The 1s orbital is hydrogen’s lowest-energy state. The pale yellow
+              points are not particles moving along fixed paths; together they
+              show the probability pattern produced by repeating the same
+              position measurement thousands of times.
             </p>
             <p>
-              On desktop, use <strong>WASD</strong> or the
-              <strong>arrow keys</strong> to orbit and dolly around the active
-              simulation target.
+              Rotate the cloud to confirm that the distribution is spherical.
+              Then drag the shell outward. Points inside the selected radial
+              band brighten, and the graph reports how many measurements fall at
+              that distance. The peak near one Bohr radius shows the most likely
+              distance from the nucleus.
             </p>
 
             <div
               class="mobile-viewer-slot"
-              data-viewer-slot="intro-sphere"
+              data-viewer-slot="1s-orbital"
+            ></div>
+
+            <div
+              id="1s-orbital-desktop-graph"
+              class="desktop-radial-graph"
+              aria-label="1s orbital radial probability graph"
             ></div>
           </section>
 
           <section
             class="lesson-section fade-scroll"
-            data-simulation="s-orbitals"
+            data-simulation="2s-orbital"
           >
             <p class="eyebrow">Simulation 02</p>
-            <h2>S Orbitals</h2>
+            <h2>The 2s Orbital</h2>
             <p>
-              As the lesson scrolls, the right-side viewer keeps the same
-              renderer, camera, player rig, XR button, and locomotion system.
-              Only the active simulation module changes.
+              In the excited 2s state, the same number of measurements spreads
+              across a much larger volume. The 3D cloud contains a small inner
+              probability region and a broader outer region, separated by a
+              spherical radial node near two Bohr radii where the probability
+              falls to zero.
             </p>
             <p>
-              When a new simulation becomes active, the player rig and camera
-              are reset so each section starts from a predictable view.
+              Orbit around the atom to see that the node is an empty spherical
+              boundary rather than a flat gap. Move the shell through the inner
+              region, across the node, and into the outer peak. The green 2s bars
+              share the same axes and scale as the faint yellow 1s comparison,
+              making the change in size and probability directly visible.
             </p>
 
             <div
               class="mobile-viewer-slot"
-              data-viewer-slot="s-orbitals"
+              data-viewer-slot="2s-orbital"
             ></div>
 
             <div
-              id="s-orbitals-desktop-graph"
+              id="2s-orbital-desktop-graph"
               class="desktop-radial-graph"
-              aria-label="S orbital radial probability graph"
-            >
-            </div>
+              aria-label="2s orbital radial probability graph with 1s comparison"
+            ></div>
           </section>
 
           <section
             class="lesson-section fade-scroll"
-            data-simulation="p-orbitals"
+            data-simulation="2p-orbital"
           >
             <p class="eyebrow">Simulation 03</p>
-            <h2>P Orbitals</h2>
+            <h2>The 2p Orbital</h2>
             <p>
-              Each visualization is written as a small module with
-              <code>enter()</code>, <code>exit()</code>,
-              <code>update()</code>, and an <code>orbitTarget</code>.
+              The 2p orbitals occupy the same principal energy level as 2s, but
+              their probability is directional instead of spherical. A nodal
+              plane passes through the nucleus and separates two lobes of likely
+              electron measurements.
             </p>
             <p>
-              This lets new LearnQM chapters reuse the same WebXR infrastructure
-              while replacing only the educational scene content.
+              This section will use direct manipulation of the simulation object
+              rather than idle motion, allowing the lobe orientation and nodal
+              plane to be inspected deliberately in three dimensions.
             </p>
 
             <div
               class="mobile-viewer-slot"
-              data-viewer-slot="p-orbitals"
+              data-viewer-slot="2p-orbital"
             ></div>
           </section>
         </main>
@@ -108,20 +150,19 @@
             data-simulation-viewer
           >
             <div class="viewer-label">
-              <span>Interactive 3D View</span>
+              <span>Interactive 3D / WebXR View</span>
               <span class="viewer-status">Desktop / XR Ready</span>
             </div>
 
             <div id="xr-canvas-container"></div>
-
             <div id="xr-button-container"></div>
 
             <p class="viewer-hint">
               <span class="viewer-hint__desktop">
-                Drag sideways to orbit · drag vertically to adjust · scroll to zoom · XR: hand controls
+                Drag sideways to orbit · drag vertically to adjust · scroll to zoom · XR: pinch and move vertically
               </span>
               <span class="viewer-hint__mobile">
-                Touch: drag sideways to orbit · drag vertically to adjust · pinch to zoom
+                Drag sideways to orbit · drag vertically to adjust · pinch to zoom
               </span>
             </p>
           </div>

@@ -8,21 +8,21 @@ import {
 
 export function createRadialGraphPanel({
   samples,
-  widthMeters = 1.35,
-  heightMeters = 1.08,
+  graphConfig,
+  widthMeters = 1.5,
+  heightMeters = 0.84,
 } = {}) {
   if (!samples) {
     throw new Error('createRadialGraphPanel requires samples')
   }
 
   const renderScale = 2
-
   const canvas = document.createElement('canvas')
+
   canvas.width = RADIAL_GRAPH_LOGICAL_WIDTH * renderScale
   canvas.height = RADIAL_GRAPH_LOGICAL_HEIGHT * renderScale
 
   const ctx = canvas.getContext('2d')
-
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
 
@@ -35,17 +35,18 @@ export function createRadialGraphPanel({
     side: THREE.DoubleSide,
   })
 
-  const mesh = new THREE.Mesh(
-    new THREE.PlaneGeometry(widthMeters, heightMeters),
-    material,
+  const geometry = new THREE.PlaneGeometry(
+    widthMeters,
+    heightMeters,
   )
 
+  const mesh = new THREE.Mesh(geometry, material)
   mesh.name = 'RadialProbabilityGraphPanel'
   mesh.renderOrder = 0
   mesh.frustumCulled = false
 
   let latestState = {
-    orbitalType: '1s',
+    orbitalType: graphConfig?.activeDatasetId ?? '1s',
     innerRadiusA0: 0,
     outerRadiusA0: 0,
     highlightedCount: 0,
@@ -64,7 +65,6 @@ export function createRadialGraphPanel({
 
   function draw() {
     ctx.save()
-
     ctx.setTransform(
       renderScale,
       0,
@@ -76,6 +76,7 @@ export function createRadialGraphPanel({
 
     drawRadialGraph(ctx, {
       state: latestState,
+      graphConfig,
       width: RADIAL_GRAPH_LOGICAL_WIDTH,
       height: RADIAL_GRAPH_LOGICAL_HEIGHT,
     })
@@ -90,7 +91,7 @@ export function createRadialGraphPanel({
   function dispose() {
     texture.dispose()
     material.dispose()
-    mesh.geometry.dispose()
+    geometry.dispose()
   }
 
   update()
