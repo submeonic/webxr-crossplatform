@@ -1,5 +1,12 @@
 import * as THREE from 'three'
 
+import {
+  RADIAL_PROBABILITY_1S_MAX,
+  RADIAL_PROBABILITY_2S_MAX,
+  radialProbability1s,
+  radialProbability2s,
+} from './sOrbitalDistributions.js'
+
 export function createSeededRandom(seed = 123456789) {
   let value = seed >>> 0
 
@@ -14,90 +21,159 @@ export function createSeededRandom(seed = 123456789) {
   }
 }
 
-/*
-Hydrogen 1s radial probability distribution.
-
-r is measured in Bohr radii a0.
-
-This is the radial shell probability density:
-
-P(r) ∝ 4r²e^(-2r)
-
-This is what we want for "how many detections fall between two spherical
-shells at radius r and r + dr".
-*/
-export function radialProbability1s(rA0) {
-  return 4 * rA0 * rA0 * Math.exp(-2 * rA0)
-}
-
-export function sampleRadius1s({
-  rMaxA0 = 5.0,
+export function sampleRadiusFromDistribution({
+  radialProbability,
+  probabilityMaximum,
+  maxRadiusA0,
   random = Math.random,
 } = {}) {
-  /*
-  f(r) = 4r²e^(-2r)
-  Maximum occurs at r = 1.
+  if (typeof radialProbability !== 'function') {
+    throw new Error(
+      'sampleRadiusFromDistribution requires radialProbability',
+    )
+  }
 
-  f(1) = 4/e²
-  */
-  const fMax = 4 / (Math.E * Math.E)
+  if (!(probabilityMaximum > 0)) {
+    throw new Error(
+      'sampleRadiusFromDistribution requires a positive probabilityMaximum',
+    )
+  }
+
+  if (!(maxRadiusA0 > 0)) {
+    throw new Error(
+      'sampleRadiusFromDistribution requires maxRadiusA0 > 0',
+    )
+  }
 
   for (;;) {
-    const r = random() * rMaxA0
-    const y = random() * fMax
+    const radiusA0 = random() * maxRadiusA0
+    const testValue = random() * probabilityMaximum
 
-    if (y <= radialProbability1s(r)) {
-      return r
+    if (testValue <= radialProbability(radiusA0)) {
+      return radiusA0
     }
   }
 }
 
-export function randomDirectionOnSphere(random = Math.random) {
-  /*
-  Uniform random direction on a sphere.
-  */
-  const u = random()
-  const v = random()
+export function sampleRadius1s({
+  rMaxA0,
+  maxRadiusA0 = rMaxA0 ?? 5,
+  random = Math.random,
+} = {}) {
+  return sampleRadiusFromDistribution({
+    radialProbability: radialProbability1s,
+    probabilityMaximum: RADIAL_PROBABILITY_1S_MAX,
+    maxRadiusA0,
+    random,
+  })
+}
 
-  const theta = Math.acos(1 - 2 * u)
-  const phi = 2 * Math.PI * v
+export function sampleRadius2s({
+  rMaxA0,
+  maxRadiusA0 = rMaxA0 ?? 12,
+  random = Math.random,
+} = {}) {
+  return sampleRadiusFromDistribution({
+    radialProbability: radialProbability2s,
+    probabilityMaximum: RADIAL_PROBABILITY_2S_MAX,
+    maxRadiusA0,
+    random,
+  })
+}
+
+export function randomDirectionOnSphere(random = Math.random) {
+  const z = 1 - 2 * random()
+  const phi = 2 * Math.PI * random()
+  const radialDistance = Math.sqrt(Math.max(0, 1 - z * z))
 
   return new THREE.Vector3(
-    Math.sin(theta) * Math.cos(phi),
-    Math.sin(theta) * Math.sin(phi),
-    Math.cos(theta),
+    radialDistance * Math.cos(phi),
+    radialDistance * Math.sin(phi),
+    z,
   )
 }
 
-export function generate1sSamples({
-  count = 3000,
-  rMaxA0 = 5.0,
-  a0ToMeters = 2.0,
+export function generateSOrbitalSamples({
+  count = 1800,
   seed = 12345,
+  maxRadiusA0,
+  a0ToMeters = 0.25,
+  sampleRadius,
 } = {}) {
-  const random = createSeededRandom(seed)
+  if (!Number.isInteger(count) || count <= 0) {
+    throw new Error(
+      'generateSOrbitalSamples requires a positive integer count',
+    )
+  }
 
+  if (!(maxRadiusA0 > 0)) {
+    throw new Error(
+      'generateSOrbitalSamples requires maxRadiusA0 > 0',
+    )
+  }
+
+  if (typeof sampleRadius !== 'function') {
+    throw new Error(
+      'generateSOrbitalSamples requires a sampleRadius function',
+    )
+  }
+
+  const random = createSeededRandom(seed)
   const radiiA0 = new Float32Array(count)
   const positions = new Array(count)
 
-  for (let i = 0; i < count; i++) {
-    const rA0 = sampleRadius1s({
-      rMaxA0,
+  for (let index = 0; index < count; index++) {
+    const radiusA0 = sampleRadius({
+      maxRadiusA0,
       random,
     })
 
     const position = randomDirectionOnSphere(random)
-      .multiplyScalar(rA0 * a0ToMeters)
+      .multiplyScalar(radiusA0 * a0ToMeters)
 
-    radiiA0[i] = rA0
-    positions[i] = position
+    radiiA0[index] = radiusA0
+    positions[index] = position
   }
 
   return {
     count,
     radiiA0,
     positions,
-    rMaxA0,
+    rMaxA0: maxRadiusA0,
+    sampleMaxRadiusA0: maxRadiusA0,
     a0ToMeters,
+    seed,
   }
+}
+
+export function generate1sSamples({
+  count = 1800,
+  seed = 1001,
+  rMaxA0,
+  maxRadiusA0 = rMaxA0 ?? 5,
+  a0ToMeters = 0.25,
+} = {}) {
+  return generateSOrbitalSamples({
+    count,
+    seed,
+    maxRadiusA0,
+    a0ToMeters,
+    sampleRadius: sampleRadius1s,
+  })
+}
+
+export function generate2sSamples({
+  count = 1800,
+  seed = 2002,
+  rMaxA0,
+  maxRadiusA0 = rMaxA0 ?? 12,
+  a0ToMeters = 0.25,
+} = {}) {
+  return generateSOrbitalSamples({
+    count,
+    seed,
+    maxRadiusA0,
+    a0ToMeters,
+    sampleRadius: sampleRadius2s,
+  })
 }

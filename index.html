@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>LearnQM WebXR Template</title>
+    <title>Hydrogen Atom in 3D | LearnQM</title>
   </head>
 
   <body id="body_parent" class="noselect">
@@ -14,87 +14,108 @@
       </a>
 
       <header class="title-row fade-scroll">
-        <h1>LearnQM WebXR Template</h1>
+        <h1>Hydrogen Atom</h1>
         <p>
-          A cross-platform WebXR learning template for desktop, Meta Quest, and
-          Apple Vision-style spatial devices. Scroll through the lesson to swap
-          simulations, or enter XR to explore with hand-based locomotion.
+          Before exploring how semiconductor devices work, it helps to
+          understand the quantum behavior of atoms. Hydrogen has the simplest
+          atomic structure, making it a useful starting point for seeing how
+          repeated electron measurements form three-dimensional probability
+          distributions called orbitals.
         </p>
       </header>
 
       <div class="content">
         <main class="lesson-content">
           <section
+            class="lesson-section tutorial-section fade-scroll"
+            aria-label="Interaction tutorial"
+          >
+            <!-- Future desktop, mobile, and XR interaction GIFs go here. -->
+          </section>
+
+          <section
             class="lesson-section fade-scroll"
-            data-simulation="intro-sphere"
+            data-simulation="1s-orbital"
           >
             <p class="eyebrow">Simulation 01</p>
-            <h2>Gesture Locomotion</h2>
+            <h2>The 1s Orbital</h2>
             <p>
-              This template includes a shared WebXR shell, a sticky 3D viewer,
-              web orbit-camera navigation, and a thumb-controlled virtual D-pad
-              locomotion system for immersive XR.
+              At atomic scales, an electron does not follow a predictable
+              planetary orbit. Each pale point in this visualization represents
+              one possible position found by measuring the electron in hydrogen’s
+              lowest-energy state many times.
             </p>
             <p>
-              On desktop, use <strong>WASD</strong> or the
-              <strong>arrow keys</strong> to orbit and dolly around the active
-              simulation target.
+              Move the thin spherical region through the cloud to count how many
+              measurements occur at each distance from the nucleus. The most
+              likely distance is neither at the nucleus nor infinitely far away;
+              it occurs near one Bohr radius.
             </p>
 
             <div
               class="mobile-viewer-slot"
-              data-viewer-slot="intro-sphere"
+              data-viewer-slot="1s-orbital"
+            ></div>
+
+            <div
+              id="1s-orbital-desktop-graph"
+              class="desktop-radial-graph"
+              aria-label="1s orbital radial probability graph"
             ></div>
           </section>
 
           <section
             class="lesson-section fade-scroll"
-            data-simulation="s-orbitals"
+            data-simulation="2s-orbital"
           >
             <p class="eyebrow">Simulation 02</p>
-            <h2>S Orbitals</h2>
+            <h2>The 2s Orbital</h2>
             <p>
-              As the lesson scrolls, the right-side viewer keeps the same
-              renderer, camera, player rig, XR button, and locomotion system.
-              Only the active simulation module changes.
+              When hydrogen absorbs energy, its electron can occupy the excited
+              2s state. The probability cloud expands outward and separates into
+              an inner region and a much larger outer region.
             </p>
             <p>
-              When a new simulation becomes active, the player rig and camera
-              are reset so each section starts from a predictable view.
+              Near two Bohr radii, the probability falls to zero. This empty
+              spherical boundary is a radial node. Compare the green 2s curve
+              with the yellow 1s curve on the shared graph, then move the shell
+              through the node and both probability regions.
             </p>
 
             <div
               class="mobile-viewer-slot"
-              data-viewer-slot="s-orbitals"
+              data-viewer-slot="2s-orbital"
             ></div>
 
             <div
-              id="s-orbitals-desktop-graph"
+              id="2s-orbital-desktop-graph"
               class="desktop-radial-graph"
-              aria-label="S orbital radial probability graph"
-            >
-            </div>
+              aria-label="2s orbital radial probability graph with 1s comparison"
+            ></div>
           </section>
 
           <section
             class="lesson-section fade-scroll"
-            data-simulation="p-orbitals"
+            data-simulation="2p-orbital"
           >
             <p class="eyebrow">Simulation 03</p>
-            <h2>P Orbitals</h2>
+            <h2>The 2p Orbital</h2>
             <p>
-              Each visualization is written as a small module with
-              <code>enter()</code>, <code>exit()</code>,
-              <code>update()</code>, and an <code>orbitTarget</code>.
+              The 2p orbitals have the same principal energy level as 2s, but
+              their probability is directional instead of spherical. A nodal
+              plane passes through the nucleus and separates the two lobes where
+              electron measurements are likely to appear.
             </p>
             <p>
-              This lets new LearnQM chapters reuse the same WebXR infrastructure
-              while replacing only the educational scene content.
+              The three 2p orbitals share the same shape and differ only in
+              orientation along the x, y, and z axes. This section will use
+              direct object manipulation to make that three-dimensional
+              structure easier to inspect.
             </p>
 
             <div
               class="mobile-viewer-slot"
-              data-viewer-slot="p-orbitals"
+              data-viewer-slot="2p-orbital"
             ></div>
           </section>
         </main>
@@ -113,7 +134,6 @@
             </div>
 
             <div id="xr-canvas-container"></div>
-
             <div id="xr-button-container"></div>
 
             <p class="viewer-hint">
