@@ -34,12 +34,12 @@ export class OrbitCameraController {
       dollySpeed: options.dollySpeed ?? 2.0,
       minDistance: options.minDistance ?? 0.75,
       maxDistance: options.maxDistance ?? 12.0,
-      defaultDistance: options.defaultDistance ?? 2.0,
+      defaultDistance: options.defaultDistance ?? 1.0,
 
       idleOrbitEnabled: options.idleOrbitEnabled ?? true,
       idleOrbitSpeed:
         options.idleOrbitSpeed ?? THREE.MathUtils.degToRad(3),
-      idleOrbitDelay: options.idleOrbitDelay ?? 7.0,
+      idleOrbitDelay: options.idleOrbitDelay ?? 2.0,
     }
 
     this.state = {
@@ -70,6 +70,24 @@ export class OrbitCameraController {
     }
 
     this.resetView()
+  }
+
+  setDefaultDistance(distance, { resetView = true } = {}) {
+    if (!Number.isFinite(distance)) return this.settings.defaultDistance
+
+    this.settings.defaultDistance = THREE.MathUtils.clamp(
+      distance,
+      this.settings.minDistance,
+      this.settings.maxDistance,
+    )
+
+    this.state.distance = this.settings.defaultDistance
+
+    if (resetView) {
+      this.resetView()
+    }
+
+    return this.settings.defaultDistance
   }
 
   resetView() {

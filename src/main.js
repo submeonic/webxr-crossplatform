@@ -58,9 +58,18 @@ const app = createWebXRApp({
   webPinchDollyDistancePerPixel: 0.01,
   webWheelDollyDistancePerPixel: 0.0025,
 
+  desktopMinDistance: 0.5,
+  desktopMaxDistance: 14,
+  desktopDefaultDistance: 2.65,
+
+  pinchDragIndicatorColor: 0xfff7ae,
+  pinchDragMarkerRadius: 0.012,
+  pinchDragLineLength: 0.11,
+  pinchDragMaximumVisualDisplacement: 0.16,
+
   desktopIdleOrbitEnabled: true,
-  desktopIdleOrbitDegreesPerSecond: 3,
-  desktopIdleOrbitDelaySeconds: 7,
+  desktopIdleOrbitDegreesPerSecond: 5,
+  desktopIdleOrbitDelaySeconds: 2,
 })
 
 const simulations = {
@@ -68,6 +77,10 @@ const simulations = {
   '2s-orbital': create2SOrbitalSimulation(app),
   '2p-orbital': createPOrbitalSimulation(app),
 }
+
+// The future 2p interaction will manipulate its simulation root directly.
+// Keep both camera and object presentation completely still until then.
+simulations['2p-orbital'].idleCameraOrbit = false
 
 for (const simulation of Object.values(simulations)) {
   simulation.exit()

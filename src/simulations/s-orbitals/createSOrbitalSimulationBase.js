@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 
-import { RadialScaleControlSystem } from '../../systems/scaling/RadialScaleControlSystem.js'
+import { PinchDragControlSystem } from '../../systems/interaction/PinchDragControlSystem.js'
 
 import { createFresnelShellMaterial } from './rendering/createFresnelShellMaterial.js'
 import { createNucleus } from './rendering/createNucleus.js'
@@ -11,24 +11,29 @@ import { createRadialGraphPanel } from './ui/createRadialGraphPanel.js'
 const GRAPH_WORLD_POSITION = new THREE.Vector3()
 const CAMERA_WORLD_POSITION = new THREE.Vector3()
 const GRAPH_LOOK_TARGET = new THREE.Vector3()
+const DEFAULT_PRESENTATION_OFFSET = new THREE.Vector3(0, 0, -2)
+const DEFAULT_GRAPH_POSITION = new THREE.Vector3(-1.75, 1.45, -0.15)
+const WORLD_UP = new THREE.Vector3(0, 1, 0)
 
 export function createSOrbitalSimulationBase(app, config) {
   validateConfig(config)
 
-  const presentationOffset =
-    config.presentationOffset ?? new THREE.Vector3(0, 0, -2)
   const contentHeight = config.contentHeight ?? 1.45
   const shellThicknessA0 = config.shellThicknessA0 ?? 0.15
-  const shellMinimumA0 = config.shellMinRadiusA0 ?? shellThicknessA0
+  const shellMinimumA0 =
+    config.shellMinRadiusA0 ?? shellThicknessA0
   const shellMaximumA0 = config.shellMaxRadiusA0
   const a0ToMeters = config.a0ToMeters ?? 0.25
+  const simulationScale = config.simulationScale ?? 1
 
   const group = new THREE.Group()
   group.name = `${config.label}OrbitalSimulation`
 
   const simulationRoot = new THREE.Group()
   simulationRoot.name = `${config.label}OrbitalPresentationRoot`
-  simulationRoot.position.copy(presentationOffset)
+  simulationRoot.position.copy(
+    config.presentationOffset ?? DEFAULT_PRESENTATION_OFFSET,
+  )
   group.add(simulationRoot)
 
   const contentAnchor = new THREE.Object3D()
@@ -36,8 +41,14 @@ export function createSOrbitalSimulationBase(app, config) {
   contentAnchor.position.set(0, contentHeight, 0)
   simulationRoot.add(contentAnchor)
 
+  // Only the atom visualization is scaled. The graph stays a readable size.
+  const orbitalRoot = new THREE.Group()
+  orbitalRoot.name = `${config.label}OrbitalVisualizationRoot`
+  orbitalRoot.scale.setScalar(simulationScale)
+  contentAnchor.add(orbitalRoot)
+
   const samples = config.sampleGenerator({
-    count: config.electronCount ?? 1800,
+    count: config.electronCount ?? 3000,
     seed: config.seed,
     maxRadiusA0: config.sampleMaxRadiusA0,
     a0ToMeters,
@@ -45,24 +56,22 @@ export function createSOrbitalSimulationBase(app, config) {
 
   const pointCloud = createOrbitalPointCloud({
     samples,
-    electronRadius: config.electronRadiusMeters ?? 0.012,
+    electronRadius: config.electronRadiusMeters ?? 0.014,
     baseColor: config.pointColor,
-    baseOpacity: config.pointOpacity ?? 0.18,
+    baseOpacity: config.pointOpacity ?? 0.16,
     highlightColor: config.highlightColor,
-    highlightOpacity: config.highlightOpacity ?? 0.95,
+    highlightOpacity: config.highlightOpacity ?? 0.98,
   })
-
-  contentAnchor.add(pointCloud.group)
+  orbitalRoot.add(pointCloud.group)
 
   const nucleus = createNucleus({
     radiusMeters: config.nucleusRadiusMeters ?? 0.045,
   })
-
-  contentAnchor.add(nucleus.mesh)
+  orbitalRoot.add(nucleus.mesh)
 
   const shellGroup = new THREE.Group()
   shellGroup.name = `${config.label}ConstantThicknessFresnelShell`
-  contentAnchor.add(shellGroup)
+  orbitalRoot.add(shellGroup)
 
   const shellGeometry = new THREE.SphereGeometry(1, 96, 48)
   const shellMaterialOptions = {
@@ -93,8 +102,7 @@ export function createSOrbitalSimulationBase(app, config) {
   innerShell.name = `${config.label}InnerFresnelShell`
   innerShell.renderOrder = 11
 
-  shellGroup.add(outerShell)
-  shellGroup.add(innerShell)
+  shellGroup.add(outerShell, innerShell)
 
   const graphPanel = createRadialGraphPanel({
     samples,
@@ -102,10 +110,8 @@ export function createSOrbitalSimulationBase(app, config) {
     widthMeters: config.graphWidthMeters ?? 1.5,
     heightMeters: config.graphHeightMeters ?? 0.84,
   })
-
   graphPanel.mesh.position.copy(
-    config.graphWorldPosition ??
-      new THREE.Vector3(-1.45, contentHeight, 0),
+    config.graphWorldPosition ?? DEFAULT_GRAPH_POSITION,
   )
   simulationRoot.add(graphPanel.mesh)
 
@@ -124,24 +130,7 @@ export function createSOrbitalSimulationBase(app, config) {
     highlightedCount: 0,
   }
 
-  let radialScaleControl = null
   let webShellDragStartRadiusA0 = shellState.outerRadiusA0
-
-  const desktopGraph = createDesktopRadialGraph({
-    containerId: config.desktopGraphContainerId,
-    samples,
-    graphConfig: config.graphConfig,
-    ariaLabel: config.desktopGraphAriaLabel,
-    minRadiusA0: shellMinimumA0,
-    maxRadiusA0: shellMaximumA0,
-
-    onRadiusChange(nextRadiusA0) {
-      radialScaleControl?.setValue(
-        nextRadiusA0,
-        'desktop-graph-drag',
-      )
-    },
-  })
 
   function getGraphState() {
     return {
@@ -155,7 +144,6 @@ export function createSOrbitalSimulationBase(app, config) {
 
   function updateGraphs() {
     const graphState = getGraphState()
-
     graphPanel.update(graphState)
     desktopGraph.update(graphState)
   }
@@ -185,17 +173,37 @@ export function createSOrbitalSimulationBase(app, config) {
     )
 
     updateGraphs()
-
     return shellState.outerRadiusA0
   }
 
-  radialScaleControl = new RadialScaleControlSystem({
-    initialValue: shellState.outerRadiusA0,
+  const shellDragControl = new PinchDragControlSystem({
+    indicator: app.pinchDragIndicator,
+    axisMode: 'world',
+    axisVector: WORLD_UP,
     minValue: shellMinimumA0,
     maxValue: shellMaximumA0,
-    dragGain: config.shellDragGainA0PerMeter ?? 1.25,
+    initialValue: shellState.outerRadiusA0,
+    fullRangeDragDistance:
+      config.xrFullRangeDragDistanceMeters ?? 0.18,
     handPriority: ['right', 'left'],
+    positiveLabel: '+',
+    negativeLabel: '−',
     onChange: setShellOuterRadiusA0,
+  })
+
+  const desktopGraph = createDesktopRadialGraph({
+    containerId: config.desktopGraphContainerId,
+    samples,
+    graphConfig: config.graphConfig,
+    ariaLabel: config.desktopGraphAriaLabel,
+    minRadiusA0: shellMinimumA0,
+    maxRadiusA0: shellMaximumA0,
+    onRadiusChange(nextRadiusA0) {
+      shellDragControl.setValue(
+        nextRadiusA0,
+        'desktop-graph-drag',
+      )
+    },
   })
 
   function updateGraphBillboard() {
@@ -204,14 +212,13 @@ export function createSOrbitalSimulationBase(app, config) {
 
     GRAPH_LOOK_TARGET.copy(CAMERA_WORLD_POSITION)
     GRAPH_LOOK_TARGET.y = GRAPH_WORLD_POSITION.y
-
     graphPanel.mesh.lookAt(GRAPH_LOOK_TARGET)
   }
 
   setShellOuterRadiusA0(initialShellOuterRadiusA0)
   app.scene.add(group)
 
-  const simulation = {
+  return {
     id: config.id,
     name: config.id,
     label: config.label,
@@ -223,9 +230,11 @@ export function createSOrbitalSimulationBase(app, config) {
     group,
     simulationRoot,
     contentAnchor,
+    orbitalRoot,
 
     desktopOrbitTarget: simulationRoot,
     desktopOrbitOffset: new THREE.Vector3(0, contentHeight, 0),
+    webInitialCameraDistance: config.webInitialCameraDistance ?? 5.5,
     orbitTarget: contentAnchor,
 
     enter() {
@@ -237,15 +246,20 @@ export function createSOrbitalSimulationBase(app, config) {
       group.visible = false
       graphPanel.setVisible(false)
       desktopGraph.setVisible(false)
-      radialScaleControl.reset()
+      shellDragControl.reset('simulation-exit')
     },
 
     handleInput(interactionState, context = {}) {
-      if (!context.isXR) {
-        return
-      }
+      if (!context.isXR) return
+      shellDragControl.update(interactionState)
+    },
 
-      radialScaleControl.update(interactionState)
+    isXRInteractionActive() {
+      return shellDragControl.isActive()
+    },
+
+    resetXRInteraction(reason = 'simulation-reset') {
+      shellDragControl.reset(reason)
     },
 
     update(_deltaTime, context = {}) {
@@ -254,49 +268,37 @@ export function createSOrbitalSimulationBase(app, config) {
       graphPanel.setVisible(isXR)
       desktopGraph.setVisible(!isXR)
 
-      if (isXR) {
-        updateGraphBillboard()
-      }
+      if (isXR) updateGraphBillboard()
     },
 
     getWebInteractionProfile() {
       return {
         idleCameraOrbit: true,
-
         verticalDrag: {
           onStart() {
-            webShellDragStartRadiusA0 =
-              shellState.outerRadiusA0
+            webShellDragStartRadiusA0 = shellState.outerRadiusA0
           },
-
           onChange({ totalDeltaY }) {
             const normalizedDelta =
               -totalDeltaY /
               (config.webShellFullRangeDragPixels ?? 260)
 
-            const nextRadiusA0 =
+            shellDragControl.setValue(
               webShellDragStartRadiusA0 +
-              normalizedDelta *
-                (shellMaximumA0 - shellMinimumA0)
-
-            radialScaleControl.setValue(
-              nextRadiusA0,
+                normalizedDelta *
+                  (shellMaximumA0 - shellMinimumA0),
               'web-vertical-drag',
             )
           },
-
           onEnd() {
-            webShellDragStartRadiusA0 =
-              shellState.outerRadiusA0
+            webShellDragStartRadiusA0 = shellState.outerRadiusA0
           },
         },
       }
     },
 
     getShellState() {
-      return {
-        ...shellState,
-      }
+      return { ...shellState }
     },
 
     getSamples() {
@@ -304,17 +306,18 @@ export function createSOrbitalSimulationBase(app, config) {
     },
 
     getRadialScaleControlState() {
-      return radialScaleControl.getState()
+      return shellDragControl.getState()
     },
 
     setShellOuterRadiusA0(nextOuterRadiusA0) {
-      return radialScaleControl.setValue(
+      return shellDragControl.setValue(
         nextOuterRadiusA0,
         'external-set',
       )
     },
 
     dispose() {
+      shellDragControl.reset('simulation-dispose')
       app.scene.remove(group)
 
       nucleus.dispose()
@@ -326,8 +329,6 @@ export function createSOrbitalSimulationBase(app, config) {
       desktopGraph.dispose()
     },
   }
-
-  return simulation
 }
 
 function validateConfig(config) {

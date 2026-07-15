@@ -30,18 +30,6 @@
   --viewer-min-width: 420px;
   --text-column-min: 300px;
   --min-layout-width: 760px;
-
-  /* Approximate non-canvas height of the mobile viewer. */
-  --mobile-viewer-ui-height: 130px;
-}
-
-html.xr-checking,
-html.xr-unavailable {
-  --mobile-viewer-ui-height: 85px;
-}
-
-html.xr-available {
-  --mobile-viewer-ui-height: 130px;
 }
 
 *,
@@ -142,6 +130,47 @@ body {
   text-align: center;
 }
 
+/* Full-width interaction introduction */
+.tutorial-section {
+  width: min(940px, calc(100vw - 4rem));
+  min-width: min(var(--min-layout-width), 100vw);
+  margin: 180px auto 0;
+  padding: 0 2rem 80px;
+  text-align: center;
+
+  opacity: 0;
+  transform: translateY(50px);
+  transition: opacity 0.3s ease-out, transform 0.3s ease-out;
+}
+
+.tutorial-section .eyebrow {
+  margin: 0 0 12px;
+  color: var(--brand);
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  opacity: 0.85;
+}
+
+.tutorial-section h2 {
+  margin: 0;
+  color: var(--brand);
+  font-family: "Agency FB", Impact, "Arial Narrow", sans-serif;
+  font-size: 36px;
+  line-height: 72px;
+  font-weight: normal;
+}
+
+.tutorial-section p {
+  max-width: 940px;
+  margin: 30px auto 0;
+  color: var(--text);
+  font-size: 18px;
+  line-height: 27px;
+}
+
 /* Main two-column lesson workspace */
 .content {
   position: relative;
@@ -171,7 +200,6 @@ body {
   position: relative;
   z-index: 1;
   min-width: 0;
-  align-self: stretch;
 }
 
 /* Larger spacing so scroll-based simulation switching feels deliberate */
@@ -299,7 +327,7 @@ body {
   display: none;
 }
 
-/* Responsive viewer destinations */
+
 .mobile-viewer-slot {
   display: none;
   width: 100%;
@@ -374,20 +402,6 @@ body {
   align-items: center;
 
   padding-top: 0.5rem;
-}
-
-/* Hide Three.js' large disabled button while checking or unsupported. */
-#xr-button-container.xr-checking,
-#xr-button-container.xr-unavailable {
-  display: none;
-  min-height: 0;
-  padding: 0;
-}
-
-.viewer-status.xr-checking,
-.viewer-status.xr-unavailable {
-  font-size: 12px;
-  opacity: 0.75;
 }
 
 #xr-button-container button,
@@ -533,6 +547,23 @@ Responsive behavior:
 
 /* True single-column phone layout */
 @media (max-width: 760px) {
+  .tutorial-section {
+    width: 100%;
+    min-width: 0;
+    margin-top: 6rem;
+    padding: 0 var(--page-gutter) 2rem;
+  }
+
+  .tutorial-section h2 {
+    font-size: 30px;
+    line-height: 48px;
+  }
+
+  .tutorial-section p {
+    font-size: 16px;
+    line-height: 24px;
+  }
+
   :root {
     --page-gutter: 1rem;
     --min-layout-width: 0px;
@@ -576,7 +607,6 @@ Responsive behavior:
   .lesson-content {
     width: 100%;
     padding-bottom: 0;
-    container-type: inline-size;
   }
 
   .lesson-section {
@@ -603,36 +633,49 @@ Responsive behavior:
   }
 
   .simulation-column {
-    display: none;
+    position: relative;
+    z-index: 1;
+    min-width: 0;
+    align-self: stretch;
   }
 
   .mobile-viewer-slot {
     display: block;
+  }
 
-    width: 100%;
-    min-width: 0;
-
-    /*
-    Empty and occupied slots reserve the same space, preventing the page
-    from jumping when the shared viewer moves between lesson sections.
-    */
-    min-height: calc(75cqi + var(--mobile-viewer-ui-height));
-
+  .mobile-viewer-slot:not(:empty) {
     margin-top: 2rem;
     margin-bottom: 2rem;
   }
 
-  .mobile-viewer-slot .simulation-sticky {
-    position: static;
-    top: auto;
+  /* Desktop/default behavior */
+  .simulation-sticky {
+    position: sticky;
+    top: 10vh;
     z-index: 1;
 
-    width: 100%;
-    height: auto;
-    min-height: 0;
+    height: 80vh;
 
-    justify-content: flex-start;
-    gap: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: stretch;
+    gap: 1rem;
+  }
+
+  /* Mobile behavior */
+  @media (max-width: 760px) {
+    .mobile-viewer-slot .simulation-sticky {
+      position: static;
+      top: auto;
+
+      width: 100%;
+      height: auto;
+      min-height: 0;
+
+      justify-content: flex-start;
+      gap: 0.75rem;
+    }
   }
 
   #xr-canvas-container {
@@ -643,28 +686,8 @@ Responsive behavior:
   }
 
   #xr-button-container {
-    min-height: 40px;
-    padding-top: 0.15rem;
-  }
-
-  #xr-button-container button,
-  #xr-button-container a,
-  #VRButton {
-    min-width: 130px !important;
-    min-height: 34px !important;
-
-    padding: 7px 12px !important;
-
-    border-width: 1px !important;
-
-    font-size: 13px !important;
-  }
-
-  #xr-button-container.xr-checking,
-  #xr-button-container.xr-unavailable {
-    display: none;
-    min-height: 0;
-    padding: 0;
+    min-height: 48px;
+    padding-top: 0.25rem;
   }
 
   .desktop-radial-graph {

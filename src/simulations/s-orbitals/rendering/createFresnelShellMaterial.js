@@ -4,7 +4,7 @@ export function createFresnelShellMaterial({
   color = 0x7ee7ff,
   baseAlpha = 0.1,
   fresnelAlpha = 0.28,
-  fresnelPower = 2.0,
+  fresnelPower = 0.28,
 } = {}) {
   return new THREE.ShaderMaterial({
     transparent: true,

@@ -12,15 +12,17 @@ export function createNucleus({
     24,
   )
 
-  const material = new THREE.MeshStandardMaterial({
-    color,
-    emissive,
-    emissiveIntensity,
-    transparent: true,
-    opacity: 0.95,
-    roughness: 0.35,
-    metalness: 0,
-  })
+const material = new THREE.MeshStandardMaterial({
+  color,
+  emissive,
+  emissiveIntensity,
+
+  transparent: false,
+  opacity: 1,
+
+  depthTest: true,
+  depthWrite: true,
+})
 
   const mesh = new THREE.Mesh(geometry, material)
   mesh.name = 'HydrogenNucleus'
