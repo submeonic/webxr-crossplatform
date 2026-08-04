@@ -5,6 +5,7 @@ import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerM
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
 import { OrbitCameraController } from '../systems/navigation/OrbitCameraController.js'
 import { WebInteractionController } from '../systems/navigation/WebInteractionController.js'
+import { PalmNavigationSystem } from '../systems/navigation/PalmNavigationSystem.js'
 import { HandDebugSystem } from '../systems/debug/HandDebugSystem.js'
 import { XRDebugPanel } from '../systems/debug/XRDebugPanel.js'
 import { HandLocomotionGestureSystem } from '../systems/locomotion/HandLocomotionGestureSystem.js'
@@ -208,6 +209,35 @@ export function createWebXRApp(options = {}) {
   })
 
   const handInteractionSystem = new HandInteractionSystem(renderer, camera)
+
+  const palmNavigationSystem = new PalmNavigationSystem({
+    renderer,
+    camera,
+    scene,
+    trackingRoot: playerRig,
+    gestureSystem: handLocomotionGestureSystem,
+
+    settings: options.palmNavigationSettings,
+    menuOptions: options.palmNavigationMenuOptions,
+
+    onNavigate: ({ simulation }) => {
+      setActiveSimulation(simulation, {
+        source: 'xr-palm-menu',
+        resetDesktopView: false,
+        resetXRPlayerRig: false,
+      })
+    },
+
+    onExitXR: () => {
+      const session = renderer.xr.getSession()
+      if (!session) return
+
+      Promise.resolve(session.end()).catch((error) => {
+        console.warn('[PalmNavigation] Unable to end XR session:', error)
+      })
+    },
+  })
+
   const pinchDragIndicator = new PinchDragIndicator(scene, camera, {
     color: options.pinchDragIndicatorColor ?? 0xfff7ae,
     markerRadius: options.pinchDragMarkerRadius ?? 0.012,
@@ -298,6 +328,7 @@ export function createWebXRApp(options = {}) {
 
     handLocomotionSystem.reset()
     handInteractionSystem.reset()
+    palmNavigationSystem.reset()
   }
 
   function handleXRSessionStart() {
@@ -313,6 +344,7 @@ export function createWebXRApp(options = {}) {
     resetActiveXRInteraction('xr-session-end')
     handLocomotionSystem.reset()
     handInteractionSystem.reset()
+    palmNavigationSystem.reset()
 
     // Keep the active simulation and restore predictable desktop framing for it.
     resetDesktopView()
@@ -373,6 +405,8 @@ export function createWebXRApp(options = {}) {
       activeSimulation = simulation
       activeSimulation.enter?.()
     }
+
+    palmNavigationSystem.setActiveSimulation(activeSimulation)
 
     const desktopOrbitTarget =
       activeSimulation?.desktopOrbitTarget ??
@@ -566,13 +600,23 @@ export function createWebXRApp(options = {}) {
       const isXR = renderer.xr.isPresenting
       let locomotionState
       let interactionState
+      let palmNavigationState
 
       updateXRHandModelVisibility(isXR)
 
       if (isXR) {
         handLocomotionGestureSystem.update()
+        palmNavigationState = palmNavigationSystem.update(deltaTime)
+
         handInteractionSystem.update()
         interactionState = handInteractionSystem.getState()
+
+        const palmMenuOwnsXRInput =
+          palmNavigationState.visible
+
+        if (palmNavigationState.openedThisFrame) {
+          resetActiveXRInteraction('palm-navigation-opened')
+        }
 
         const inputContext = {
           app: publicApi,
@@ -580,16 +624,21 @@ export function createWebXRApp(options = {}) {
           isXR: true,
           locomotionState: null,
           interactionState,
+          palmNavigationState,
         }
 
-        activeSimulation?.handleInput?.(
-          interactionState,
-          inputContext,
-        )
+        if (!palmMenuOwnsXRInput) {
+          activeSimulation?.handleInput?.(
+            interactionState,
+            inputContext,
+          )
+        }
 
-        const simulationOwnsXRInput = Boolean(
-          activeSimulation?.isXRInteractionActive?.(),
-        )
+        const simulationOwnsXRInput =
+          !palmMenuOwnsXRInput &&
+          Boolean(
+            activeSimulation?.isXRInteractionActive?.(),
+          )
 
         locomotionState = handLocomotionSystem.update(
           deltaTime,
@@ -599,10 +648,13 @@ export function createWebXRApp(options = {}) {
               moveZ: 0,
               turnY: 0,
             },
-            suppressHands: simulationOwnsXRInput,
+            suppressHands:
+              palmMenuOwnsXRInput ||
+              simulationOwnsXRInput,
           },
         )
       } else {
+        palmNavigationState = palmNavigationSystem.update(deltaTime)
         orbitCameraController.update(deltaTime)
         locomotionState = getDesktopLocomotionState()
         handInteractionSystem.reset()
@@ -621,6 +673,7 @@ export function createWebXRApp(options = {}) {
         isXR,
         locomotionState,
         interactionState,
+        palmNavigationState,
       }
 
       activeSimulation?.update?.(deltaTime, simulationContext)
@@ -659,6 +712,7 @@ export function createWebXRApp(options = {}) {
     )
 
     resetActiveXRInteraction('app-dispose')
+    palmNavigationSystem.dispose()
     pinchDragIndicator.dispose()
     webInteractionController.dispose()
     orbitCameraController.dispose()
@@ -693,6 +747,7 @@ export function createWebXRApp(options = {}) {
     handLocomotionSystem,
     handLocomotionIndicator,
     handInteractionSystem,
+    palmNavigationSystem,
     pinchDragIndicator,
     handDebugSystem,
     xrDebugPanel,

@@ -3,7 +3,6 @@ import './style.css'
 import { createWebXRApp } from './core/createWebXRApp.js'
 import { ResponsiveViewerPlacementController } from './systems/navigation/ResponsiveViewerPlacementController.js'
 import { ScrollSimulationController } from './systems/navigation/ScrollSimulationController.js'
-
 import { create1SOrbitalSimulation } from './simulations/s-orbitals/create1SOrbitalSimulation.js'
 import { create2SOrbitalSimulation } from './simulations/s-orbitals/create2SOrbitalSimulation.js'
 import { createPOrbitalSimulation } from './simulations/p-orbitals/createPOrbitalSimulation.js'
@@ -70,6 +69,26 @@ const app = createWebXRApp({
   desktopIdleOrbitEnabled: true,
   desktopIdleOrbitDegreesPerSecond: 5,
   desktopIdleOrbitDelaySeconds: 2,
+
+  // Starting palm-menu tuning values. These are intentionally centralized
+  // here so Quest and Vision Pro testing can tune them without editing the
+  // navigation-system implementation.
+  palmNavigationSettings: {
+    holdSeconds: 0.25,
+    graceSeconds: 0.18,
+    openCurlEnter: 0.5,
+    openCurlExit: 0.68,
+    facingEnterDegrees: 30,
+    facingExitDegrees: 30,
+    menuOffsetUp: 0.105,
+    menuOffsetNormal: 0.05,
+    positionSmoothing: 18,
+    rotationSmoothing: 14,
+    activationDelaySeconds: 0.4,
+    preferredMenuHand: 'left',
+    debugLogging: false,
+    debugForceVisible: false,
+  },
 })
 
 const simulations = {
@@ -77,6 +96,32 @@ const simulations = {
   '2s-orbital': create2SOrbitalSimulation(app),
   '2p-orbital': createPOrbitalSimulation(app),
 }
+
+simulations['1s-orbital'].metadata = {
+  id: '1s-orbital',
+  label: '1s Orbital',
+  xrMenuLabel: '1s',
+  xrMenuOrder: 1,
+  showInXRMenu: true,
+}
+
+simulations['2s-orbital'].metadata = {
+  id: '2s-orbital',
+  label: '2s Orbital',
+  xrMenuLabel: '2s',
+  xrMenuOrder: 2,
+  showInXRMenu: true,
+}
+
+simulations['2p-orbital'].metadata = {
+  id: '2p-orbital',
+  label: '2p Orbital',
+  xrMenuLabel: '2p',
+  xrMenuOrder: 3,
+  showInXRMenu: true,
+}
+
+app.palmNavigationSystem.setSimulations(simulations)
 
 // The future 2p interaction will manipulate its simulation root directly.
 // Keep both camera and object presentation completely still until then.
