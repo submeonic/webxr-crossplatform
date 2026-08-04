@@ -48,7 +48,7 @@ export function createSOrbitalSimulationBase(app, config) {
   contentAnchor.add(orbitalRoot)
 
   const samples = config.sampleGenerator({
-    count: config.electronCount ?? 3000,
+    count: config.electronCount ?? 1000,
     seed: config.seed,
     maxRadiusA0: config.sampleMaxRadiusA0,
     a0ToMeters,
@@ -56,7 +56,7 @@ export function createSOrbitalSimulationBase(app, config) {
 
   const pointCloud = createOrbitalPointCloud({
     samples,
-    electronRadius: config.electronRadiusMeters ?? 0.014,
+    electronRadius: config.electronRadiusMeters ?? 0.03,
     baseColor: config.pointColor,
     baseOpacity: config.pointOpacity ?? 0.16,
     highlightColor: config.highlightColor,
@@ -65,7 +65,7 @@ export function createSOrbitalSimulationBase(app, config) {
   orbitalRoot.add(pointCloud.group)
 
   const nucleus = createNucleus({
-    radiusMeters: config.nucleusRadiusMeters ?? 0.045,
+    radiusMeters: config.nucleusRadiusMeters ?? 0.05,
   })
   orbitalRoot.add(nucleus.mesh)
 

@@ -3,7 +3,6 @@ import * as THREE from 'three'
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
 import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
-
 import { OrbitCameraController } from '../systems/navigation/OrbitCameraController.js'
 import { WebInteractionController } from '../systems/navigation/WebInteractionController.js'
 import { HandDebugSystem } from '../systems/debug/HandDebugSystem.js'
@@ -170,7 +169,6 @@ export function createWebXRApp(options = {}) {
 
   const handLocomotionGestureSystem = new HandLocomotionGestureSystem(renderer, {
     profileName: activeHandProfile,
-
     frameTiltXDegrees: -20,
     frameTiltZDegreesRight: -20,
     frameTiltZDegreesLeft: 20,
@@ -210,7 +208,6 @@ export function createWebXRApp(options = {}) {
   })
 
   const handInteractionSystem = new HandInteractionSystem(renderer, camera)
-
   const pinchDragIndicator = new PinchDragIndicator(scene, camera, {
     color: options.pinchDragIndicatorColor ?? 0xfff7ae,
     markerRadius: options.pinchDragMarkerRadius ?? 0.012,
@@ -222,7 +219,6 @@ export function createWebXRApp(options = {}) {
   const handDebugSystem = new HandDebugSystem(playerRig, renderer, {
     showJoints: options.showHandDebugJoints ?? false,
     showAxes: options.showHandDebugAxes ?? false,
-
     jointSize: 0.012,
     axisLength: 0.09,
 
@@ -253,7 +249,6 @@ export function createWebXRApp(options = {}) {
     minDistance: options.desktopMinDistance ?? 0.75,
     maxDistance: options.desktopMaxDistance ?? 12,
     defaultDistance: options.desktopDefaultDistance ?? 2,
-
     idleOrbitEnabled:
       options.desktopIdleOrbitEnabled ?? true,
     idleOrbitSpeed: THREE.MathUtils.degToRad(
@@ -271,7 +266,6 @@ export function createWebXRApp(options = {}) {
       options.webDragActivationPixels ??
       options.touchDragActivationPixels ??
       8,
-
     orbitRadiansPerPixel:
       options.webOrbitRadiansPerPixel ??
       options.touchOrbitRadiansPerPixel ??
@@ -293,14 +287,35 @@ export function createWebXRApp(options = {}) {
     pinchDragIndicator.hide()
   }
 
+  function resetDesktopView() {
+    webInteractionController.reset()
+    orbitCameraController.resetView()
+  }
+
+  function resetXRPlayerRig() {
+    playerRig.position.set(0, 0, 0)
+    playerRig.rotation.set(0, 0, 0)
+
+    handLocomotionSystem.reset()
+    handInteractionSystem.reset()
+  }
+
   function handleXRSessionStart() {
     webInteractionController.reset()
+
+    // Reset the player once when a new immersive session begins. The active
+    // webpage simulation is intentionally preserved.
+    resetXRPlayerRig()
     resetActiveXRInteraction('xr-session-start')
   }
 
   function handleXRSessionEnd() {
     resetActiveXRInteraction('xr-session-end')
+    handLocomotionSystem.reset()
     handInteractionSystem.reset()
+
+    // Keep the active simulation and restore predictable desktop framing for it.
+    resetDesktopView()
   }
 
   renderer.xr.addEventListener(
@@ -318,39 +333,45 @@ export function createWebXRApp(options = {}) {
     updateCallbacks.push(callback)
   }
 
-  function setDesktopOrbitTarget(target, targetOffset = null) {
-    orbitCameraController.setTarget(target, targetOffset)
-  }
-
-  function resetPlayerTransform() {
-    playerRig.position.set(0, 0, 0)
-    playerRig.rotation.set(0, 0, 0)
-
-    camera.position.set(0, 1.6, 3)
-    camera.rotation.set(0, 0, 0)
-
-    webInteractionController.reset()
-    orbitCameraController.resetView()
+  function setDesktopOrbitTarget(
+    target,
+    targetOffset = null,
+    setTargetOptions = {},
+  ) {
+    orbitCameraController.setTarget(
+      target,
+      targetOffset,
+      setTargetOptions,
+    )
   }
 
   function getActiveSimulation() {
     return activeSimulation
   }
 
-  function setActiveSimulation(simulation) {
-    if (!simulation) return
-    if (activeSimulation === simulation) return
+  function setActiveSimulation(
+    simulation,
+    switchOptions = {},
+  ) {
+    if (!simulation) return false
 
-    if (activeSimulation?.exit) {
-      activeSimulation.exit()
-    }
+    const {
+      source = 'programmatic',
+      resetDesktopView: shouldResetDesktopView = false,
+      resetXRPlayerRig: shouldResetXRPlayerRig = false,
+    } = switchOptions
 
-    activeSimulation = simulation
+    const simulationChanged =
+      activeSimulation !== simulation
 
-    resetPlayerTransform()
+    if (simulationChanged) {
+      resetActiveXRInteraction(
+        `simulation-change:${source}`,
+      )
 
-    if (activeSimulation?.enter) {
-      activeSimulation.enter()
+      activeSimulation?.exit?.()
+      activeSimulation = simulation
+      activeSimulation.enter?.()
     }
 
     const desktopOrbitTarget =
@@ -367,13 +388,19 @@ export function createWebXRApp(options = {}) {
       options.desktopDefaultDistance ??
       2
 
+    // Update the active simulation's desktop presentation settings without
+    // resetting the camera unless the caller's policy explicitly requests it.
     orbitCameraController.setDefaultDistance(
       webInitialCameraDistance,
       { resetView: false },
     )
 
     if (desktopOrbitTarget) {
-      setDesktopOrbitTarget(desktopOrbitTarget, desktopOrbitOffset)
+      setDesktopOrbitTarget(
+        desktopOrbitTarget,
+        desktopOrbitOffset,
+        { resetView: false },
+      )
     }
 
     const interactionProfile =
@@ -387,6 +414,16 @@ export function createWebXRApp(options = {}) {
     orbitCameraController.setIdleOrbitEnabled(
       idleCameraOrbitEnabled,
     )
+
+    if (shouldResetXRPlayerRig) {
+      resetXRPlayerRig()
+    }
+
+    if (shouldResetDesktopView) {
+      resetDesktopView()
+    }
+
+    return simulationChanged
   }
 
   function resize() {
@@ -454,7 +491,6 @@ export function createWebXRApp(options = {}) {
 
     const left = handLocomotionGestureSystem.hands.left
     const right = handLocomotionGestureSystem.hands.right
-
     const leftInteraction = interactionState.left
     const rightInteraction = interactionState.right
 
@@ -467,7 +503,6 @@ export function createWebXRApp(options = {}) {
       `DIRECTION: ${locomotionState.direction}`,
 
       '',
-
       `R visible: ${right.visible}`,
       `R fist: ${right.fistActive}`,
       `R confidence: ${right.fistConfidence.toFixed(2)}`,
@@ -483,9 +518,7 @@ export function createWebXRApp(options = {}) {
       `R delta Z: ${right.deltaThumbLocal.z.toFixed(2)}`,
       `R joyX: ${right.joystickX.toFixed(2)}`,
       `R joyZ: ${right.joystickZ.toFixed(2)}`,
-
       '',
-
       `L visible: ${left.visible}`,
       `L fist: ${left.fistActive}`,
       `L confidence: ${left.fistConfidence.toFixed(2)}`,
@@ -501,7 +534,6 @@ export function createWebXRApp(options = {}) {
       `L delta Z: ${left.deltaThumbLocal.z.toFixed(2)}`,
       `L joyX: ${left.joystickX.toFixed(2)}`,
       `L joyZ: ${left.joystickZ.toFixed(2)}`,
-
       '',
 
       `R pinch: ${rightInteraction.pinchActive}`,
@@ -514,7 +546,6 @@ export function createWebXRApp(options = {}) {
       `moveX: ${locomotionState.moveX.toFixed(2)}`,
       `moveZ: ${locomotionState.moveZ.toFixed(2)}`,
       `turnY: ${locomotionState.turnY.toFixed(2)}`,
-
       `Rig X: ${playerRig.position.x.toFixed(2)}`,
       `Rig Z: ${playerRig.position.z.toFixed(2)}`,
       `Rig Yaw: ${playerRig.rotation.y.toFixed(2)}`,
@@ -533,7 +564,6 @@ export function createWebXRApp(options = {}) {
     renderer.setAnimationLoop(() => {
       const deltaTime = clock.getDelta()
       const isXR = renderer.xr.isPresenting
-
       let locomotionState
       let interactionState
 
@@ -666,14 +696,14 @@ export function createWebXRApp(options = {}) {
     pinchDragIndicator,
     handDebugSystem,
     xrDebugPanel,
-
     xrAvailabilityPromise,
     refreshXRAvailability,
 
     onUpdate,
 
     setDesktopOrbitTarget,
-    resetPlayerTransform,
+    resetDesktopView,
+    resetXRPlayerRig,
 
     getActiveSimulation,
     setActiveSimulation,

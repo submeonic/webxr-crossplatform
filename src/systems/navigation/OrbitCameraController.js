@@ -1,6 +1,8 @@
 import * as THREE from 'three'
 
 const TEMP_TARGET_POSITION = new THREE.Vector3()
+const TEMP_CAMERA_WORLD_POSITION = new THREE.Vector3()
+const TEMP_CAMERA_LOCAL_POSITION = new THREE.Vector3()
 const TEMP_CAMERA_OFFSET = new THREE.Vector3()
 
 /**
@@ -17,7 +19,6 @@ export class OrbitCameraController {
     }
 
     this.camera = camera
-
     this.target = options.target ?? new THREE.Vector3(0, 0, -2)
     this.targetOffset =
       options.targetOffset ?? new THREE.Vector3(0, 1.45, 0)
@@ -35,7 +36,6 @@ export class OrbitCameraController {
       minDistance: options.minDistance ?? 0.75,
       maxDistance: options.maxDistance ?? 12.0,
       defaultDistance: options.defaultDistance ?? 1.0,
-
       idleOrbitEnabled: options.idleOrbitEnabled ?? true,
       idleOrbitSpeed:
         options.idleOrbitSpeed ?? THREE.MathUtils.degToRad(3),
@@ -62,26 +62,32 @@ export class OrbitCameraController {
     window.addEventListener('blur', this.handleWindowBlur)
   }
 
-  setTarget(target, targetOffset = null) {
+  setTarget(
+    target,
+    targetOffset = null,
+    { resetView = true } = {},
+  ) {
     this.target = target
 
     if (targetOffset) {
       this.targetOffset.copy(targetOffset)
     }
 
-    this.resetView()
+    if (resetView) {
+      this.resetView()
+    }
   }
 
   setDefaultDistance(distance, { resetView = true } = {}) {
-    if (!Number.isFinite(distance)) return this.settings.defaultDistance
+    if (!Number.isFinite(distance)) {
+      return this.settings.defaultDistance
+    }
 
     this.settings.defaultDistance = THREE.MathUtils.clamp(
       distance,
       this.settings.minDistance,
       this.settings.maxDistance,
     )
-
-    this.state.distance = this.settings.defaultDistance
 
     if (resetView) {
       this.resetView()
@@ -90,11 +96,17 @@ export class OrbitCameraController {
     return this.settings.defaultDistance
   }
 
-  resetView() {
-    this.state.initialized = false
+  resetView({ angle = 0, height = 1.6 } = {}) {
+    this.state.initialized = true
+    this.state.angle = angle
+    this.state.distance = this.settings.defaultDistance
+    this.state.height = height
+
     this.state.idleElapsed = this.settings.idleOrbitDelay
     this.state.activeInteractionCount = 0
+
     this.clearKeyboardInput()
+    this.updateCameraTransform()
   }
 
   // Compatibility with older code that called reset().
@@ -146,7 +158,6 @@ export class OrbitCameraController {
       0,
       this.state.activeInteractionCount - 1,
     )
-
     this.notifyInteraction()
   }
 
@@ -201,15 +212,16 @@ export class OrbitCameraController {
     }
 
     TEMP_TARGET_POSITION.add(this.targetOffset)
-
     return TEMP_TARGET_POSITION
   }
 
   initialize() {
     const targetPosition = this.getTargetPosition()
 
+    this.camera.getWorldPosition(TEMP_CAMERA_WORLD_POSITION)
+
     TEMP_CAMERA_OFFSET
-      .copy(this.camera.position)
+      .copy(TEMP_CAMERA_WORLD_POSITION)
       .sub(targetPosition)
 
     TEMP_CAMERA_OFFSET.y = 0
@@ -231,7 +243,7 @@ export class OrbitCameraController {
       )
     }
 
-    this.state.height = this.camera.position.y
+    this.state.height = TEMP_CAMERA_WORLD_POSITION.y
     this.state.initialized = true
   }
 
@@ -260,7 +272,6 @@ export class OrbitCameraController {
 
     this.ensureInitialized()
     this.notifyInteraction()
-
     this.state.distance = THREE.MathUtils.clamp(
       this.state.distance + deltaDistance,
       this.settings.minDistance,
@@ -271,13 +282,31 @@ export class OrbitCameraController {
   updateCameraTransform() {
     const targetPosition = this.getTargetPosition()
 
-    this.camera.position.set(
+    TEMP_CAMERA_WORLD_POSITION.set(
       targetPosition.x +
         Math.sin(this.state.angle) * this.state.distance,
       this.state.height,
       targetPosition.z +
         Math.cos(this.state.angle) * this.state.distance,
     )
+
+    if (this.camera.parent) {
+      this.camera.parent.updateWorldMatrix(true, false)
+
+      TEMP_CAMERA_LOCAL_POSITION.copy(
+        TEMP_CAMERA_WORLD_POSITION,
+      )
+      this.camera.parent.worldToLocal(
+        TEMP_CAMERA_LOCAL_POSITION,
+      )
+      this.camera.position.copy(
+        TEMP_CAMERA_LOCAL_POSITION,
+      )
+    } else {
+      this.camera.position.copy(
+        TEMP_CAMERA_WORLD_POSITION,
+      )
+    }
 
     this.camera.lookAt(targetPosition)
   }
@@ -300,7 +329,6 @@ export class OrbitCameraController {
       this.applyOrbitDelta(
         orbitInput * this.settings.orbitSpeed * deltaTime,
       )
-
       this.applyDollyDelta(
         dollyInput * this.settings.dollySpeed * deltaTime,
       )
