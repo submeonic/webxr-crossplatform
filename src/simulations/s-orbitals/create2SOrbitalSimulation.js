@@ -20,7 +20,7 @@ export function create2SOrbitalSimulation(app) {
 
     sampleGenerator: generate2sSamples,
     seed: 2002,
-    electronCount: 5000,
+    electronCount: 1000,
 
     sampleMaxRadiusA0: 12,
     shellMinRadiusA0: 0.25,
@@ -35,8 +35,8 @@ export function create2SOrbitalSimulation(app) {
     xrFullRangeDragDistanceMeters: 0.18,
 
     a0ToMeters: 0.25,
-    electronRadiusMeters: 0.018,
-    nucleusRadiusMeters: 0.055,
+    electronRadiusMeters: 0.035,
+    nucleusRadiusMeters: 0.1,
 
     // Keep the atom itself visually consistent with 1s.
     pointColor: 0xeadfad,

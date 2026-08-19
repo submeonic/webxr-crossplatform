@@ -35,12 +35,16 @@ export class ScrollSimulationController {
       this.setSimulationFromName(
         this.initialSimulationName,
         initialSection,
+        {
+          source: 'initial-load',
+          resetDesktopView: true,
+          resetXRPlayerRig: false,
+        },
       )
     }
 
     window.addEventListener('scroll', this.queueUpdate)
     window.addEventListener('resize', this.queueUpdate)
-
     this.queueUpdate()
   }
 
@@ -48,10 +52,8 @@ export class ScrollSimulationController {
     if (!this.started) return
 
     this.started = false
-
     window.removeEventListener('scroll', this.queueUpdate)
     window.removeEventListener('resize', this.queueUpdate)
-
     this.scrollSwitchQueued = false
   }
 
@@ -77,6 +79,7 @@ export class ScrollSimulationController {
   setSimulationFromName(
     simulationName,
     sectionElement = this.findSectionForSimulation(simulationName),
+    switchOptions = {},
   ) {
     if (!simulationName) return
 
@@ -89,7 +92,6 @@ export class ScrollSimulationController {
 
     const simulationChanged =
       simulationName !== this.activeSimulationName
-
     const sectionChanged =
       sectionElement !== this.activeSectionElement
 
@@ -101,7 +103,10 @@ export class ScrollSimulationController {
     this.activeSectionElement = sectionElement
 
     if (simulationChanged) {
-      this.app.setActiveSimulation(simulation)
+      this.app.setActiveSimulation(
+        simulation,
+        switchOptions,
+      )
 
       if (this.logChanges) {
         console.log(`Active simulation: ${simulationName}`)
@@ -141,13 +146,11 @@ export class ScrollSimulationController {
     }
 
     const viewportCenterY = window.innerHeight * 0.5
-
     let closestSection = null
     let closestDistance = Infinity
 
     for (const section of this.sections) {
       const rect = section.getBoundingClientRect()
-
       const isVisible =
         rect.bottom > 0 &&
         rect.top < window.innerHeight
@@ -156,7 +159,6 @@ export class ScrollSimulationController {
 
       const sectionCenterY =
         rect.top + rect.height * 0.5
-
       const distance = Math.abs(
         sectionCenterY - viewportCenterY,
       )
@@ -194,6 +196,11 @@ export class ScrollSimulationController {
     this.setSimulationFromName(
       simulationName,
       closestSection,
+      {
+        source: 'desktop-scroll',
+        resetDesktopView: true,
+        resetXRPlayerRig: false,
+      },
     )
   }
 }

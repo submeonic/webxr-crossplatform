@@ -49,6 +49,7 @@ export class HandLocomotionSystem {
     this.currentMoveX = 0
     this.currentMoveZ = 0
     this.currentTurnY = 0
+
     this.targetMoveX = 0
     this.targetMoveZ = 0
     this.targetTurnY = 0
@@ -67,6 +68,29 @@ export class HandLocomotionSystem {
     }
   }
 
+  reset() {
+    this.currentMoveX = 0
+    this.currentMoveZ = 0
+    this.currentTurnY = 0
+
+    this.targetMoveX = 0
+    this.targetMoveZ = 0
+    this.targetTurnY = 0
+
+    this.state.activeHand = null
+    this.state.activeHandedness = 'none'
+    this.state.usingHands = false
+    this.state.direction = 'neutral'
+
+    this.state.moveX = 0
+    this.state.moveZ = 0
+    this.state.turnY = 0
+
+    this.state.currentMoveX = 0
+    this.state.currentMoveZ = 0
+    this.state.currentTurnY = 0
+  }
+
   update(deltaTime, options = {}) {
     const fallbackIntent = options.fallbackIntent ?? {
       moveX: 0,
@@ -75,8 +99,10 @@ export class HandLocomotionSystem {
     }
 
     const suppressHands = Boolean(options.suppressHands)
+
     const left = this.gestureSystem.hands.left
     const right = this.gestureSystem.hands.right
+
     const activeHand = suppressHands
       ? null
       : this.getActiveHand(left, right)
@@ -109,9 +135,11 @@ export class HandLocomotionSystem {
     this.state.activeHandedness = activeHand?.handedness ?? 'none'
     this.state.usingHands = activeHand !== null
     this.state.direction = intent.direction
+
     this.state.moveX = intent.moveX
     this.state.moveZ = intent.moveZ
     this.state.turnY = intent.turnY
+
     this.state.currentMoveX = this.currentMoveX
     this.state.currentMoveZ = this.currentMoveZ
     this.state.currentTurnY = this.currentTurnY
@@ -209,11 +237,13 @@ export class HandLocomotionSystem {
       this.targetMoveX,
       t,
     )
+
     this.currentMoveZ = THREE.MathUtils.lerp(
       this.currentMoveZ,
       this.targetMoveZ,
       t,
     )
+
     this.currentTurnY = THREE.MathUtils.lerp(
       this.currentTurnY,
       this.targetTurnY,
