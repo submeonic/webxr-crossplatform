@@ -33,17 +33,18 @@
         <h2>Explore the Chapter Spatially</h2>
         <p>
           Each point in the viewer represents one possible result of
-          measuring an electron’s position. Orbit around the cloud to see
-          that its structure exists in every direction, then move the thin
-          spherical shell through the measurements to connect the 3D shape
-          with the radial graph below the lesson text.
+          measuring an electron’s position. In the 1s and 2s sections, orbit
+          around the cloud and move the thin spherical shell through the
+          measurements to connect the 3D shape with the radial graph. In the
+          2p section, rotate the orbital itself to compare its three spatial
+          orientations.
         </p>
         <p>
-          On desktop, drag sideways to orbit, drag vertically to move the
-          shell, and scroll to zoom. On touch devices, use the same one-finger
-          drags and pinch to zoom. In WebXR, pinch and move vertically to
-          adjust the shell while the world-space guide shows the direction
-          and sensitivity of the control.
+          On desktop or touch, use the viewer’s drag gestures and zoom
+          controls. In WebXR, use the hand interactions shown for each
+          simulation. The 2p orbital can be pinch-dragged in two directions;
+          when released, it snaps to the nearest 2p<sub>x</sub>,
+          2p<sub>y</sub>, or 2p<sub>z</sub> orientation.
         </p>
 
         <!-- Future desktop, mobile, and XR interaction GIFs go here. -->
@@ -121,7 +122,7 @@
             data-simulation="2p-orbital"
           >
             <p class="eyebrow">Simulation 03</p>
-            <h2>The 2p Orbital</h2>
+            <h2>The 2p Orbitals</h2>
             <p>
               The 2p orbitals occupy the same principal energy level as 2s, but
               their probability is directional instead of spherical. A nodal
@@ -129,15 +130,59 @@
               electron measurements.
             </p>
             <p>
-              This section will use direct manipulation of the simulation object
-              rather than idle motion, allowing the lobe orientation and nodal
-              plane to be inspected deliberately in three dimensions.
+              Drag horizontally and vertically to rotate the probability cloud.
+              In WebXR, pinch and drag it with either hand. When you release,
+              the orbital snaps to the nearest 2p<sub>x</sub>,
+              2p<sub>y</sub>, or 2p<sub>z</sub> orientation. The title above the
+              cloud identifies the current orientation.
             </p>
 
             <div
               class="mobile-viewer-slot"
               data-viewer-slot="2p-orbital"
             ></div>
+
+            <div
+              id="2p-orbital-desktop-graph"
+              class="desktop-radial-graph"
+              aria-label="2p orbital radial probability graph with 1s and 2s comparisons"
+            ></div>
+                        
+            <div class="guided-activity" aria-labelledby="p-orbital-guided-title">
+              <p class="eyebrow">Guided Activity</p>
+              <h3 id="p-orbital-guided-title">Rotate, Compare, Observe</h3>
+              <p>
+                Move through all three snapped orientations and use the 3D
+                probability cloud and radial graph together. Focus on what
+                changes when the orbital rotates and what stays the same.
+              </p>
+              <ol>
+                <li>
+                  <strong>Find the nodal plane.</strong>
+                  In each orientation, where are electron measurements missing?
+                  How does that empty plane move as you switch between
+                  2p<sub>x</sub>, 2p<sub>y</sub>, and 2p<sub>z</sub>?
+                </li>
+                <li>
+                  <strong>Watch the radial graph while you rotate.</strong>
+                  Does the pink 2p distribution change when the lobes point
+                  along a different axis? What does that suggest about the
+                  difference between distance from the nucleus and direction?
+                </li>
+                <li>
+                  <strong>Compare the n = 2 orbitals.</strong>
+                  Compare the pink 2p distribution with the green 2s
+                  distribution. Both belong to the second energy level, but
+                  where does each distribution fall to zero?
+                </li>
+                <li>
+                  <strong>Estimate the most likely distance.</strong>
+                  At about how many Bohr radii does the 2p radial distribution
+                  reach its highest point?
+                </li>
+              </ol>
+            </div>
+            
           </section>
         </main>
 

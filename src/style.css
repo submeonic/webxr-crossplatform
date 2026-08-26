@@ -746,3 +746,64 @@ Responsive behavior:
     flex-direction: column;
   }
 }
+
+/* Guided observation activity */
+.guided-activity {
+  margin-top: 2rem;
+  padding: 1.25rem 1.35rem 1.4rem;
+
+  background: rgba(255, 247, 174, 0.035);
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--brand);
+}
+
+.guided-activity .eyebrow {
+  margin: 0 0 0.35rem;
+}
+
+.lesson-section .guided-activity h3 {
+  margin: 0;
+
+  color: var(--brand);
+  font-family: "Agency FB", Impact, "Arial Narrow", sans-serif;
+  font-size: 26px;
+  line-height: 36px;
+  font-weight: normal;
+}
+
+.lesson-section .guided-activity p {
+  margin-top: 0.75rem;
+
+  color: var(--muted);
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.guided-activity ol {
+  margin: 0.9rem 0 0;
+  padding-left: 1.4rem;
+
+  color: var(--text);
+  font-family: "Bai Jamjuree", sans-serif;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+.guided-activity li {
+  margin: 0.75rem 0;
+  padding-left: 0.2rem;
+}
+
+/*
+ * The 2p graph is observational only. Unlike the 1s/2s graphs it does not
+ * control a sample shell, so let page scrolling pass through it normally.
+ */
+#2p-orbital-desktop-graph {
+  touch-action: pan-y;
+}
+
+#2p-orbital-desktop-graph canvas {
+  cursor: default;
+  pointer-events: none;
+}
+
