@@ -798,12 +798,11 @@ Responsive behavior:
  * The 2p graph is observational only. Unlike the 1s/2s graphs it does not
  * control a sample shell, so let page scrolling pass through it normally.
  */
-#2p-orbital-desktop-graph {
+#\32 p-orbital-desktop-graph {
   touch-action: pan-y;
 }
 
-#2p-orbital-desktop-graph canvas {
+#\32 p-orbital-desktop-graph canvas {
   cursor: default;
   pointer-events: none;
 }
-
