@@ -36,7 +36,7 @@ export function create2SOrbitalSimulation(app) {
 
     a0ToMeters: 0.25,
     electronRadiusMeters: 0.035,
-    nucleusRadiusMeters: 0.1,
+    nucleusRadiusMeters: 0.075,
 
     // Keep the atom itself visually consistent with 1s.
     pointColor: 0xeadfad,

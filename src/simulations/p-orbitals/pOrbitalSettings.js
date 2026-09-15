@@ -11,7 +11,7 @@ export function createPOrbitalSettings() {
     sampleMaxRadiusA0: 12, shellMinRadiusA0: 0.25, shellMaxRadiusA0: 12,
     initialShellOuterRadiusA0: 5.35, shellThicknessA0: 0.25,
     simulationScale: 0.6, webInitialCameraDistance: 2.5,
-    a0ToMeters: 0.25, electronRadiusMeters: 0.035, nucleusRadiusMeters: 0.1,
+    a0ToMeters: 0.25, electronRadiusMeters: 0.035, nucleusRadiusMeters: 0.075,
     pointColor: 0xeadfad, pointOpacity: 0.16,
     highlightColor: 0xfff7ae, highlightOpacity: 0.98, shellColor: 0xfff7ae,
     controls: { xrShellFullRangeMeters: 0.18, xrYawRadiansPerMeter: 7 },

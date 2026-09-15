@@ -32,7 +32,7 @@ export function create1SOrbitalSimulation(app) {
 
     a0ToMeters: 0.25,
     electronRadiusMeters: 0.035,
-    nucleusRadiusMeters: 0.1,
+    nucleusRadiusMeters: 0.075,
     pointColor: 0xeadfad,
     pointOpacity: 0.16,
     highlightColor: 0xfff7ae,

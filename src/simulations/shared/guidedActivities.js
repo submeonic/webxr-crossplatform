@@ -1,30 +1,29 @@
 export const guidedActivities = {
   '1s-orbital': {
-    title: 'Explore the 1s orbital',
+    title: 'From cloud to graph',
     steps: [
-      'Drag horizontally to rotate the cloud. Does its overall shape change?',
-      'Drag vertically to move the shell. Find the radius with the most highlighted measurements.',
-      'Compare the highlighted band with the radial graph. Where is its peak?',
-      'Move outward from the peak. Describe how the probability changes.',
+      'Predict the view after rotation. Turn the cloud to test its spherical symmetry.',
+      'Scan outward. Find the shell containing the most highlighted outcomes.',
+      'Why is the peak near 1 a₀, not the center? Consider each shell’s size.',
+      'Scan past the peak. Do you find a sharp edge or a fading probability tail?',
     ],
   },
   '2s-orbital': {
-    title: 'Find the radial node',
+    title: 'Map a spherical node',
     steps: [
-      'Move the shell outward from the nucleus. Look for the gap near two Bohr radii.',
-      'Rotate the cloud. Is that gap a spherical boundary or a flat plane?',
-      'Compare the green 2s curve with the faint yellow 1s curve. Which spreads farther?',
-      'Find the inner and outer probability peaks using the shell and graph.',
+      'Scan outward. Find the inner cluster, the zero near 2 a₀, and the broad outer region.',
+      'Move the measuring shell away, then rotate. Does the empty gap surround the nucleus?',
+      'Compare 2s with the faint 1s reference. Which extends farther?',
+      'Explain how the node divides 2s into inner and outer probability regions.',
     ],
   },
   '2p-orbital': {
-    title: 'Select, rotate, compare',
+    title: 'Separate direction from radius',
     steps: [
-      'Choose 2px, 2py, and 2pz using the orbital buttons. In XR, open the palm menu first.',
-      'Find the empty nodal plane. Compare it with the labeled X, Y, and Z axes.',
-      'Drag horizontally to inspect the cloud and axes together. Your selected orbital stays the same.',
-      'Drag vertically to move the shell. Compare the pink radial curve across all three selections.',
-      'Compare 2p with 2s. Where does each radial distribution fall to zero?',
+      'Switch among 2px, 2py, and 2pz. Which axis contains each pair of lobes?',
+      'Predict the nodal plane, then rotate the cloud and axes to check it.',
+      'Scan, then switch orientation. What changes in 3D but not on the graph?',
+      'Compare 2p’s nodal plane with 2s’s spherical node.',
     ],
   },
 }

@@ -14,14 +14,15 @@
       </a>
 
       <header class="title-row fade-scroll">
-        <p class="eyebrow">Interactive WebXR companion to LearnQM Chapter 1</p>
+        <p class="eyebrow">LearnQM Lab · Georgia Tech · Chapter 1 Companion</p>
         <h1>Hydrogen Orbitals in 3D</h1>
         <p>
-          This experience reinterprets the orbital simulations from LearnQM’s
-          semiconductor-physics chapter as interactive three-dimensional
-          probability clouds. Explore on a desktop or touch screen, or enter
-          WebXR to stand beside the atom and inspect how repeated electron
-          measurements fill space around the nucleus.
+          This 3D/XR experience extends
+          <a class="source-link" href="https://learnqm.gatech.edu/Semiconductor-Physics-Visualization/ch1/index.html" target="_blank" rel="noreferrer">Chapter 1 of LearnQM’s Semiconductor Physics Visualization</a>.
+          Instead of treating an orbital as a flat picture, you can turn it,
+          scan it by radius, and compare what you see with the graph. The goal
+          is to use the extra spatial dimension to explain where an electron
+          may be measured—and where it cannot be measured—in each state.
         </p>
       </header>
 
@@ -30,20 +31,25 @@
         aria-label="Interaction tutorial"
       >
         <p class="eyebrow">Interaction Tutorial</p>
-        <h2>Explore the Chapter Spatially</h2>
+        <h2>Read a Probability Cloud</h2>
         <p>
-          Each point in the viewer represents one possible result of
-          measuring an electron’s position. In the 1s and 2s sections, rotate
-          the cloud and move the thin spherical shell through the
-          measurements to connect the 3D shape with the radial graph. In the
-          2p section, select an orbital and rotate its labeled coordinate frame to inspect it.
+          Imagine preparing the same hydrogen atom many times and measuring
+          the electron’s position once each time. Every point is one possible
+          outcome from that repeated experiment; the points are not a path
+          traveled by one electron. Dense regions mean that outcomes pack
+          closely in space. The graph answers a different question: how many
+          outcomes lie within a thin spherical shell at each distance from the
+          nucleus? Move the shell to connect those two views of probability.
         </p>
         <p>
-          On desktop or touch, use the viewer’s drag gestures and zoom
-          controls. In WebXR, use the hand interactions shown for each
-          simulation. Across all simulations, pinch and drag horizontally to rotate, or vertically to adjust the shell.
-          Open the palm menu and poke 2p<sub>x</sub>, 2p<sub>y</sub>, or 2p<sub>z</sub> to select an orbital.
-          On the web, use the buttons below the viewer.
+          On desktop or touch, drag mostly sideways to rotate and mostly
+          vertically to scan the shell; use the wheel or a two-finger pinch to
+          zoom. In WebXR, pinch to begin, then move sideways to rotate or up
+          and down to scan. The guide follows whichever direction is farther
+          from your starting point. Open either palm when no higher-priority
+          interaction is active, then poke a menu item with the opposite index
+          finger. When you stop interacting, a slow rotation resumes so the
+          full 3D form remains visible.
         </p>
 
         <!-- Future desktop, mobile, and XR interaction GIFs go here -->
@@ -58,17 +64,20 @@
             <p class="eyebrow">Simulation 01</p>
             <h2>The 1s Orbital</h2>
             <p>
-              The 1s orbital is hydrogen’s lowest-energy state. The pale yellow
-              points are not particles moving along fixed paths; together they
-              show the probability pattern produced by repeating the same
-              position measurement thousands of times.
+              The 1s orbital is hydrogen’s lowest-energy state. Its pale yellow
+              cloud is most densely packed near the nucleus and thins smoothly
+              with distance. Rotate it from several directions: if no viewpoint
+              reveals an edge, lobe, or preferred direction, the evidence
+              supports spherical symmetry.
             </p>
             <p>
-              Rotate the cloud to confirm that the distribution is spherical.
-              Then drag the shell outward. Points inside the selected radial
-              band brighten, and the graph reports how many measurements fall at
-              that distance. The peak near one Bohr radius shows the most likely
-              distance from the nucleus.
+              Now scan the shell outward. Although the cloud is densest at the
+              center, a shell very near the center contains little space and
+              therefore few outcomes. Larger shells include more space. Their
+              competition with the thinning cloud produces a radial-probability
+              peak near one Bohr radius, <i>a</i><sub>0</sub>. Continue outward
+              past the peak: the fading tail has no hard boundary, even when
+              only a few sample points remain visible.
             </p>
 
             <div
@@ -90,18 +99,20 @@
             <p class="eyebrow">Simulation 02</p>
             <h2>The 2s Orbital</h2>
             <p>
-              In the excited 2s state, the same number of measurements spreads
-              across a much larger volume. The 3D cloud contains a small inner
-              probability region and a broader outer region, separated by a
-              spherical radial node near two Bohr radii where the probability
-              falls to zero.
+              The excited 2s state remains spherical, but its outcomes spread
+              through a much larger volume. A compact inner region and a broad
+              outer region are separated by a radial node at
+              2<i>a</i><sub>0</sub>: an entire spherical surface where the
+              probability of measuring the electron is zero.
             </p>
             <p>
-              Rotate the atom to see that the node is an empty spherical
-              boundary rather than a flat gap. Move the shell through the inner
-              region, across the node, and into the outer peak. The green 2s bars
-              share the same axes and scale as the faint yellow 1s comparison,
-              making the change in size and probability directly visible.
+              A flat image can make this empty region look like a ring. Rotate
+              the cloud and watch the gap remain wrapped around the nucleus;
+              that motion reveals it as a sphere. Then scan from the inner peak,
+              through the zero at the node, and into the larger outer peak.
+              Compare the green 2s graph with the faint yellow 1s reference to
+              explain how excitation changes both the size and internal
+              structure of the probability distribution.
             </p>
 
             <div
@@ -123,18 +134,21 @@
             <p class="eyebrow">Simulation 03</p>
             <h2>The 2p Orbitals</h2>
             <p>
-              The 2p orbitals occupy the same principal energy level as 2s, but
-              their probability is directional instead of spherical. A nodal
-              plane passes through the nucleus and separates two lobes of likely
-              electron measurements.
+              In ideal hydrogen, 2s and 2p belong to the same principal energy
+              level, yet their spatial patterns differ. A 2p cloud points along
+              one axis and contains two lobes. Between them is an angular node:
+              a whole plane through the nucleus where the probability is zero.
             </p>
             <p>
-              Choose 2p<sub>x</sub>, 2p<sub>y</sub>, or 2p<sub>z</sub> with the viewer buttons,
-              or the contextual row in the XR palm menu. Drag horizontally to rotate
-              the cloud and its X, Y, Z axes together; drag vertically to move the shell.
-              Selection changes the orbital relative to these axes. Inspection rotation
-              preserves that selection, the shell radius, and the radial distribution.
-              Rotating 2p<sub>y</sub> around Y leaves its overall lobe shape unchanged.
+              Switch among 2p<sub>x</sub>, 2p<sub>y</sub>, and
+              2p<sub>z</sub> with the viewer buttons or XR palm menu. The
+              subscript names the axis along which the lobes point, so the nodal
+              plane is perpendicular to that axis. Rotate the cloud and labeled
+              axes together to inspect this relationship from another angle.
+              Then scan the shell and switch orientations again: the 3D
+              direction changes, but the pink radial graph does not. This shows
+              that orientation changes angular probability while leaving the
+              distribution of distances unchanged.
             </p>
 
             <div
@@ -169,10 +183,10 @@
 
             <p class="viewer-hint">
               <span class="viewer-hint__desktop">
-                Drag sideways to rotate · drag vertically for shell radius · scroll to zoom · XR: pinch and drag
+                Sideways: rotate · vertical: scan radius · scroll: zoom · XR: pinch, then move
               </span>
               <span class="viewer-hint__mobile">
-                Drag sideways to rotate · drag vertically for shell radius · pinch to zoom
+                Sideways: rotate · vertical: scan radius · two fingers: zoom
               </span>
             </p>
           </div>

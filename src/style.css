@@ -133,6 +133,17 @@ body {
   text-align: center;
 }
 
+.title-row .source-link,
+.title-row .source-link:visited {
+  color: var(--brand);
+  text-decoration-color: rgba(255, 247, 174, 0.55);
+  text-underline-offset: 0.18em;
+}
+
+.title-row .source-link:hover {
+  text-decoration-color: var(--brand);
+}
+
 /* Full-width interaction introduction */
 .tutorial-section {
   width: min(940px, calc(100vw - 4rem));
