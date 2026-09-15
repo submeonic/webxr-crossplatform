@@ -190,6 +190,10 @@ export function createOrbitalSimulation(app, config) {
       ...config.controls,
     },
   })
+  const xrIdleRotationDelaySeconds = config.xrIdleRotationDelaySeconds ?? 3
+  const xrIdleRotationRadiansPerSecond = config.xrIdleRotationRadiansPerSecond ??
+    THREE.MathUtils.degToRad(3)
+  let xrIdleElapsedSeconds = 0
   const activity = config.activity ?? guidedActivities[config.id]
   const activityPanel = activity ? createActivityPanel(activity, config.activityPanel) : null
   if (activityPanel) {
@@ -236,7 +240,7 @@ export function createOrbitalSimulation(app, config) {
     orbitalRoot,
     pointCloudRoot: pointCloud.group,
     settings: config,
-    idleCameraOrbit: false,
+    idleCameraOrbit: true,
 
     desktopOrbitTarget: simulationRoot,
     desktopOrbitOffset: new THREE.Vector3(0, contentHeight, 0),
@@ -246,6 +250,7 @@ export function createOrbitalSimulation(app, config) {
     enter() {
       group.visible = true
       desktopGraph.setVisible(true)
+      xrIdleElapsedSeconds = 0
     },
 
     exit() {
@@ -253,12 +258,14 @@ export function createOrbitalSimulation(app, config) {
       graphPanel.setVisible(false)
       desktopGraph.setVisible(true)
       controls.xr.reset('simulation-exit')
+      xrIdleElapsedSeconds = 0
       if (activityPanel) activityPanel.mesh.visible = false
     },
 
     handleInput(interactionState, context = {}) {
       if (!context.isXR) return
       controls.xr.update(interactionState, context.deltaTime)
+      if (controls.xr.isActive()) xrIdleElapsedSeconds = 0
     },
 
     isXRInteractionActive() {
@@ -269,13 +276,25 @@ export function createOrbitalSimulation(app, config) {
       controls.xr.reset(reason)
     },
 
-    update(_deltaTime, context = {}) {
+    update(deltaTime, context = {}) {
       const isXR = Boolean(context.isXR)
 
       graphPanel.setVisible(isXR)
       desktopGraph.setVisible(true)
 
-      if (isXR) updateGraphBillboard()
+      if (isXR) {
+        if (controls.xr.isActive()) {
+          xrIdleElapsedSeconds = 0
+        } else {
+          xrIdleElapsedSeconds += Math.max(0, deltaTime)
+          if (xrIdleElapsedSeconds >= xrIdleRotationDelaySeconds) {
+            orbitalRoot.rotation.y += xrIdleRotationRadiansPerSecond * deltaTime
+          }
+        }
+        updateGraphBillboard()
+      } else {
+        xrIdleElapsedSeconds = 0
+      }
       activityPanel?.update(isXR, app.camera)
     },
 

@@ -45,6 +45,7 @@ test('all simulations share controls, shell limits, and XR-only panel lifecycle'
     simulation.enter()
     assert.ok(simulation.getWebInteractionProfile().horizontalDrag)
     assert.ok(simulation.getWebInteractionProfile().verticalDrag)
+    assert.equal(simulation.idleCameraOrbit, true)
     simulation.setShellOuterRadiusA0(-20)
     assert.equal(simulation.getShellState().outerRadiusA0, 0.25)
     simulation.setShellOuterRadiusA0(50)
@@ -64,6 +65,40 @@ test('all simulations share controls, shell limits, and XR-only panel lifecycle'
     simulation.dispose()
     assert.equal(app.scene.children.length, 0)
   }
+})
+test('XR idle rotation ignores locomotion and menu but resets for pinch drag', () => {
+  const { app } = fixture()
+  const simulation = create1SOrbitalSimulation(app)
+  simulation.enter()
+  const idle = { isXR: true, locomotionState: { usingHands: false },
+    palmNavigationState: { visible: false } }
+  const locomotion = { isXR: true, locomotionState: { usingHands: true },
+    palmNavigationState: { visible: false } }
+  const menu = { isXR: true, locomotionState: { usingHands: false },
+    palmNavigationState: { visible: true } }
+  const initialYaw = simulation.orbitalRoot.rotation.y
+  simulation.update(2.9, idle)
+  assert.equal(simulation.orbitalRoot.rotation.y, initialYaw)
+  simulation.update(.2, idle)
+  assert.ok(simulation.orbitalRoot.rotation.y > initialYaw)
+  const rotatingYaw = simulation.orbitalRoot.rotation.y
+  simulation.update(1, locomotion)
+  assert.ok(simulation.orbitalRoot.rotation.y > rotatingYaw)
+  const afterLocomotion = simulation.orbitalRoot.rotation.y
+  simulation.update(1, menu)
+  assert.ok(simulation.orbitalRoot.rotation.y > afterLocomotion)
+  simulation.handleInput({ right: { visible: true, pinchStarted: true,
+    pinchActive: true, pinchPosition: new THREE.Vector3() } }, { isXR: true, deltaTime: 1 / 90 })
+  const pausedYaw = simulation.orbitalRoot.rotation.y
+  simulation.update(5, idle)
+  assert.equal(simulation.orbitalRoot.rotation.y, pausedYaw)
+  simulation.handleInput({ right: { visible: true, pinchEnded: true,
+    pinchActive: false, pinchPosition: new THREE.Vector3() } }, { isXR: true, deltaTime: 1 / 90 })
+  simulation.update(2.9, idle)
+  assert.equal(simulation.orbitalRoot.rotation.y, pausedYaw)
+  simulation.update(.2, idle)
+  assert.ok(simulation.orbitalRoot.rotation.y > pausedYaw)
+  simulation.dispose()
 })
 test('2p selection preserves radius, highlight count, sample identity, and inspection yaw', () => {
   const { app, viewer } = fixture()

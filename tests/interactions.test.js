@@ -35,6 +35,8 @@ test('direction switches only after a clear lead and resumes without a value jum
   control.update({ right: pose(0, 0, 0, true) })
   settle(control, { right: pose(.05, .02) })
   assert.equal(control.axis, 'horizontal')
+  settle(control, { right: pose(.001, .007) })
+  assert.equal(control.axis, 'horizontal', 'small zero-crossing noise keeps the current axis')
   settle(control, { right: pose(.05, .055) })
   assert.equal(control.axis, 'horizontal')
   settle(control, { right: pose(.05, .09) })
@@ -45,6 +47,25 @@ test('direction switches only after a clear lead and resumes without a value jum
   assert.equal(control.axis, 'vertical')
   settle(control, { right: pose(.13, .09) })
   assert.equal(control.axis, 'horizontal')
+})
+test('a brief perpendicular lead does not switch the active axis', () => {
+  const { control } = fixture()
+  control.update({ right: pose(0, 0, 0, true) })
+  settle(control, { right: pose(.05, .01) })
+  assert.equal(control.axis, 'horizontal')
+  control.update({ right: pose(.01, .08) }, .02)
+  control.update({ right: pose(.06, .02) }, .02)
+  settle(control, { right: pose(.06, .02) })
+  assert.equal(control.axis, 'horizontal')
+})
+test('a sustained dominant axis switches consistently at headset refresh rates', () => {
+  for (const hz of [72, 90]) {
+    const { control } = fixture()
+    control.update({ right: pose(0, 0, 0, true) })
+    settle(control, { right: pose(.05, .01) })
+    for (let i = 0; i < hz; i++) control.update({ right: pose(.01, .09) }, 1 / hz)
+    assert.equal(control.axis, 'vertical')
+  }
 })
 test('horizontal follows viewer yaw and stays fixed after head movement', () => {
   const { control, camera, events } = fixture()

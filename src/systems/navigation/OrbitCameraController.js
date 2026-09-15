@@ -48,8 +48,7 @@ export class OrbitCameraController {
       distance: this.settings.defaultDistance,
       height: 1.6,
 
-      // Begin auto-orbiting immediately on initial load and after a view reset.
-      idleElapsed: this.settings.idleOrbitDelay,
+      idleElapsed: 0,
       activeInteractionCount: 0,
     }
 
@@ -102,7 +101,7 @@ export class OrbitCameraController {
     this.state.distance = this.settings.defaultDistance
     this.state.height = height
 
-    this.state.idleElapsed = this.settings.idleOrbitDelay
+    this.state.idleElapsed = 0
     this.state.activeInteractionCount = 0
 
     this.clearKeyboardInput()
@@ -127,14 +126,12 @@ export class OrbitCameraController {
 
   /**
    * Allows an active simulation to disable the shared idle camera orbit.
-   * Re-enabling it starts the automatic presentation orbit immediately.
+   * Re-enabling it starts a fresh idle countdown.
    */
   setIdleOrbitEnabled(enabled) {
-    this.settings.idleOrbitEnabled = Boolean(enabled)
-
-    if (this.settings.idleOrbitEnabled) {
-      this.state.idleElapsed = this.settings.idleOrbitDelay
-    }
+    const nextEnabled = Boolean(enabled)
+    this.settings.idleOrbitEnabled = nextEnabled
+    if (nextEnabled) this.notifyInteraction()
   }
 
   isIdleOrbitEnabled() {

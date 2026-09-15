@@ -32,12 +32,21 @@ XR pinches start at an 18 mm fingertip gap on the first sample. Release requires
 40 mm separation sustained for 100 ms; returning below that gap resets the timer.
 Tracking loss still cancels immediately. A pending pinch reserves interaction and
 shows origin/endpoint feedback without altering the simulation. After 6 mm of
-smoothed motion and a 1.1 dominance ratio, one axis becomes active. The other axis takes over only when its absolute
-distance from the original pinch point exceeds the current axis by 12 mm.
+smoothed motion and a 1.1 dominance ratio, one axis becomes active. To switch,
+the other axis must be at least 10 mm from the original pinch, lead the current
+axis by 8 mm, and hold that lead for 80 ms. The current axis and its visual stay
+selected during confirmation. A noisy sample cannot switch immediately, and an
+intentional perpendicular movement is never trapped by a stateful dead zone.
 Controls resume from their current value on switching, so they do not jump. Position
 smoothing uses a 45 ms time constant, independent of display refresh rate. These
 are shared tuning defaults and still need physical Quest/Vision Pro validation.
 Web/touch controls retain their original single-axis behavior.
+
+After three seconds without input, web view resumes the existing slow camera
+orbit and XR slowly rotates the orbital geometry root. Pointer input immediately
+pauses the web camera. Only pinch drag resets the XR idle timer; locomotion and
+the palm menu allow idle rotation to continue. Both idle motions use the existing
+three-degrees-per-second presentation speed.
 The palm menu opens only when all five fingers are extended, the palm faces the
 viewer, and neither hand is beginning or holding an interaction. Busy input resets
 the opening dwell. Tracking loss requires a fresh pinch. Panel placement defaults

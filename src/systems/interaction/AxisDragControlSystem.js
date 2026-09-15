@@ -3,9 +3,12 @@ import * as THREE from 'three'
 /** One pinch owns one action until release. Axes are captured at pinch start. */
 export class AxisDragControlSystem {
   constructor({ camera, indicator, horizontal, vertical, thresholdMeters = 0.006,
-    dominanceRatio = 1.1, switchMarginMeters = 0.012, handPriority = ['right', 'left'] }) {
+    dominanceRatio = 1.1, switchActivationMeters = 0.010,
+    switchMarginMeters = 0.008, switchHoldSeconds = 0.08,
+    handPriority = ['right', 'left'] }) {
     Object.assign(this, { camera, indicator, horizontal, vertical, thresholdMeters,
-      dominanceRatio, switchMarginMeters, handPriority })
+      dominanceRatio, switchActivationMeters, switchMarginMeters, switchHoldSeconds,
+      handPriority })
     this.origin = new THREE.Vector3()
     this.right = new THREE.Vector3(1, 0, 0)
     this.delta = new THREE.Vector3()
@@ -14,6 +17,8 @@ export class AxisDragControlSystem {
     this.hand = null
     this.axis = null
     this.axisOrigins = { horizontal: 0, vertical: 0 }
+    this.switchCandidate = null
+    this.switchCandidateSeconds = 0
   }
 
   update(state, deltaTime = 1 / 60) {
@@ -49,10 +54,25 @@ export class AxisDragControlSystem {
       if (Math.max(ax, ay) < this.thresholdMeters) return
       if (ax > ay * this.dominanceRatio && this.horizontal) nextAxis = 'horizontal'
       if (ay > ax * this.dominanceRatio && this.vertical) nextAxis = 'vertical'
-    } else if (this.axis === 'horizontal' && this.vertical && ay > ax + this.switchMarginMeters) {
-      nextAxis = 'vertical'
-    } else if (this.axis === 'vertical' && this.horizontal && ax > ay + this.switchMarginMeters) {
-      nextAxis = 'horizontal'
+    } else {
+      const candidateAxis = this.axis === 'horizontal' ? 'vertical' : 'horizontal'
+      const activeDistance = this.axis === 'horizontal' ? ax : ay
+      const candidateDistance = candidateAxis === 'horizontal' ? ax : ay
+      const candidateClearlyLeads = Boolean(this[candidateAxis]) &&
+        candidateDistance >= this.switchActivationMeters &&
+        candidateDistance > activeDistance + this.switchMarginMeters
+
+      if (candidateClearlyLeads) {
+        if (this.switchCandidate !== candidateAxis) {
+          this.switchCandidate = candidateAxis
+          this.switchCandidateSeconds = 0
+        }
+        this.switchCandidateSeconds += Math.min(Math.max(deltaTime, 0), 0.05)
+        if (this.switchCandidateSeconds >= this.switchHoldSeconds) nextAxis = candidateAxis
+      } else {
+        this.switchCandidate = null
+        this.switchCandidateSeconds = 0
+      }
     }
     if (!nextAxis) return
     if (nextAxis !== this.axis) {
@@ -61,6 +81,8 @@ export class AxisDragControlSystem {
       this.axis = nextAxis
       // Compare against the original pinch, but resume each control without a value jump.
       this.axisOrigins[this.axis] = switching ? (this.axis === 'horizontal' ? x : y) : 0
+      this.switchCandidate = null
+      this.switchCandidateSeconds = 0
       this[this.axis].onStart?.()
       this.indicator?.setAxis(this.axis)
     }
@@ -75,6 +97,8 @@ export class AxisDragControlSystem {
     if (this.axis) this[this.axis].onEnd?.({ reason })
     this.hand = null
     this.axis = null
+    this.switchCandidate = null
+    this.switchCandidateSeconds = 0
     this.indicator?.hide()
   }
 }
