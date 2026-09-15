@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { FONT_SYMBOL } from '../ui/interfaceTheme.js'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 
 function createArrowTexture(symbol, active = false) {
@@ -9,7 +10,7 @@ function createArrowTexture(symbol, active = false) {
   const ctx = canvas.getContext('2d')
   ctx.clearRect(0, 0, 256, 256)
 
-  ctx.font = '150px Arial'
+  ctx.font = `150px ${FONT_SYMBOL}`
   ctx.textAlign = 'center'
   ctx.textBaseline = 'middle'
 

@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { FONT_DISPLAY, FONT_BODY, INTERFACE_THEME as theme } from './interfaceTheme.js'
 
 /** Content is shared with the web lesson; the panel belongs to the stationary presentation. */
 export function createActivityPanel(activity, { width = 1.5, height = 1.05 } = {}) {
@@ -6,20 +7,24 @@ export function createActivityPanel(activity, { width = 1.5, height = 1.05 } = {
   canvas.width = 1200
   canvas.height = 840
   const ctx = canvas.getContext('2d')
-  ctx.fillStyle = '#101716'
+  ctx.fillStyle = theme.background
   ctx.fillRect(0, 0, 1200, 840)
-  ctx.strokeStyle = '#537267'
+  ctx.fillStyle = theme.activityFill
+  ctx.fillRect(0, 0, 1200, 840)
+  ctx.strokeStyle = theme.line
   ctx.lineWidth = 3
   ctx.strokeRect(2, 2, 1196, 836)
-  ctx.fillStyle = '#91b9a0'
-  ctx.font = 'bold 24px Arial'
+  ctx.fillStyle = theme.brand
+  ctx.fillRect(0, 0, 7, 840)
+  ctx.fillStyle = theme.muted
+  ctx.font = `600 28px ${FONT_BODY}`
   ctx.fillText('GUIDED ACTIVITY', 48, 55)
-  ctx.fillStyle = '#fff7ae'
-  ctx.font = 'bold 42px Arial'
+  ctx.fillStyle = theme.brand
+  ctx.font = `400 52px ${FONT_DISPLAY}`
   ctx.fillText(activity.title, 48, 116)
 
   function wrap(text, size) {
-    ctx.font = `${size}px Arial`
+    ctx.font = `${size}px ${FONT_BODY}`
     const lines = []
     let line = ''
     for (const word of text.split(/\s+/)) {
@@ -30,7 +35,7 @@ export function createActivityPanel(activity, { width = 1.5, height = 1.05 } = {
     if (line) lines.push(line)
     return lines
   }
-  let size = 34, blocks
+  let size = 52, blocks
   do {
     blocks = activity.steps.map(step => wrap(step, size))
     if (blocks.reduce((height, lines) => height + lines.length * size * 1.35 + 24, 0) <= 620) break
@@ -38,11 +43,11 @@ export function createActivityPanel(activity, { width = 1.5, height = 1.05 } = {
   } while (size > 24)
   let y = 182
   blocks.forEach((lines, index) => {
-    ctx.font = `bold ${size}px Arial`
-    ctx.fillStyle = '#fff7ae'
+    ctx.font = `${size}px ${FONT_BODY}`
+    ctx.fillStyle = theme.text
     ctx.fillText(`${index + 1}.`, 48, y)
-    ctx.font = `${size}px Arial`
-    ctx.fillStyle = '#e3ece7'
+    ctx.font = `${size}px ${FONT_BODY}`
+    ctx.fillStyle = theme.text
     for (const line of lines) { ctx.fillText(line, 98, y); y += size * 1.35 }
     y += 24
   })

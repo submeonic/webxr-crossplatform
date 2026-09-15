@@ -16,7 +16,7 @@ export function createPOrbitalSettings() {
     highlightColor: 0xfff7ae, highlightOpacity: 0.98, shellColor: 0xfff7ae,
     controls: { xrShellFullRangeMeters: 0.18, xrYawRadiansPerMeter: 7 },
     axesLengthMeters: 2.2,
-    initialYawRadians: 0.45,
+    initialYawRadians: 0,
     desktopGraphContainerId: '2p-orbital-desktop-graph',
     desktopGraphAriaLabel: '2p radial probability graph with 1s and 2s comparisons',
     graphConfig: {

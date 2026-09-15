@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import { PalmNavigationMenu } from './PalmNavigationMenu.js'
+import { areAllFingersOpen } from './palmMenuEligibility.js'
 import { getPalmPanelPose } from './palmPanelPose.js'
 
 const TEMP_WRIST = new THREE.Vector3()
@@ -84,14 +85,15 @@ export class PalmNavigationSystem {
       holdSeconds: 0.3,
       graceSeconds: 0.18,
 
-      openCurlEnter: 0.35,
-      openCurlExit: 0.55,
+      openCurlEnter: 0.18,
+      openCurlExit: 0.28,
 
       facingEnterDegrees: 40,
       facingExitDegrees: 55,
 
-      menuOffsetUp: 0.15,
-      menuOffsetNormal: 0.08,
+      menuOffsetUp: 0.055,
+      menuOffsetNormal: 0.025,
+      menuOffsetFingers: 0.09,
       maxPanelTiltDegrees: 20,
       freezeWhilePoking: true,
 
@@ -236,7 +238,7 @@ export class PalmNavigationSystem {
     return handedness === 'left' ? 'right' : 'left'
   }
 
-  update(deltaTime) {
+  update(deltaTime, { allowOpen = true } = {}) {
     this.state.openedThisFrame = false
     this.state.closedThisFrame = false
     this.state.activatedItem = null
@@ -303,7 +305,7 @@ export class PalmNavigationSystem {
     )
 
     if (!this.ownerHandedness) {
-      this.updateCandidates(deltaTime)
+      this.updateCandidates(deltaTime, allowOpen)
     } else {
       this.updateOwner(deltaTime)
     }
@@ -464,8 +466,7 @@ export class PalmNavigationSystem {
     /*
      * Preserve an anatomical palm-space basis for fallback use.
      * The final menu roll is resolved in updateMenuTransform(), where
-     * local +Z stays on the palm normal and local +Y is stabilized
-     * against world up.
+     * facing is determined by the viewer and roll stays upright.
      */
     TEMP_UP
       .copy(TEMP_RAW_UP)
@@ -513,20 +514,8 @@ export class PalmNavigationSystem {
 
     if (!gestureState?.visible) return
 
-    const curls = [
-      gestureState.indexCurl,
-      gestureState.middleCurl,
-      gestureState.ringCurl,
-      gestureState.pinkyCurl,
-    ]
-
-    handState.openPalm = curls.every(
-      (curl) => curl <= this.settings.openCurlEnter,
-    )
-
-    handState.retainedOpenPalm = curls.every(
-      (curl) => curl <= this.settings.openCurlExit,
-    )
+    handState.openPalm = areAllFingersOpen(gestureState, this.settings.openCurlEnter)
+    handState.retainedOpenPalm = areAllFingersOpen(gestureState, this.settings.openCurlExit)
 
     handState.tracked = true
     handState.enterPose =
@@ -538,20 +527,11 @@ export class PalmNavigationSystem {
       handState.facingScore >= this.facingExitDot
   }
 
-  updateCandidates(deltaTime) {
-    if (this.settings.debugForceVisible) {
-      const preferred = this.hands[this.settings.preferredMenuHand]
-      const fallback = this.hands[
-        this.getOppositeHandedness(this.settings.preferredMenuHand)
-      ]
-      const trackedHand = preferred.tracked ? preferred : fallback
-
-      if (trackedHand.tracked) {
-        this.openForHand(trackedHand.handedness)
-        return
-      }
+  updateCandidates(deltaTime, allowOpen = true) {
+    if (!allowOpen) {
+      for (const hand of Object.values(this.hands)) hand.candidateSeconds = 0
+      return
     }
-
     for (const handState of Object.values(this.hands)) {
       if (handState.enterPose) {
         handState.candidateSeconds += deltaTime
@@ -653,6 +633,8 @@ export class PalmNavigationSystem {
       palmCenter: owner.palmCenter,
       viewerPosition: TEMP_CAMERA_POSITION,
       upOffset: this.settings.menuOffsetUp,
+      fingerDirection: owner.palmFingerDirection,
+      fingerOffset: this.settings.menuOffsetFingers,
       forwardOffset: this.settings.menuOffsetNormal,
       maxTiltDegrees: this.settings.maxPanelTiltDegrees,
       fallbackQuaternion: this.menu.group.quaternion,

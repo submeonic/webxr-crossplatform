@@ -1,3 +1,5 @@
+import { createTextLabel } from '../src/systems/ui/createTextLabel.js'
+import { PinchDragIndicator } from '../src/systems/interaction/PinchDragIndicator.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import * as THREE from 'three'
@@ -31,7 +33,7 @@ function fixture() {
     renderer: { xr: { isPresenting: false } },
     palmNavigationSystem: { refreshContextActions() {} },
     getActiveSimulation: () => null,
-    pinchDragIndicator: { hide() {}, show() {}, update() {} },
+    pinchDragIndicator: { hide() {}, show() {}, update() {}, setAxis() {} },
   }
   return { app, viewer }
 }
@@ -153,4 +155,65 @@ test('panel ignores palm roll and freezes while the opposite finger approaches',
   system.updateMenuTransform(owner, 1/60)
   assert.ok(system.menu.group.position.x > position.x)
   system.menu.dispose()
+})
+
+test('billboard faces the camera with no roll even under a rotated parent', () => {
+  fixture()
+  const label = createTextLabel('Z'), parent = new THREE.Group()
+  parent.rotation.y = .7; parent.add(label.sprite)
+  const camera = new THREE.PerspectiveCamera(); camera.position.set(1, 2, 4)
+  camera.rotation.z = .8
+  parent.updateMatrixWorld(true); camera.updateMatrixWorld(true)
+  label.sprite.onBeforeRender(null, null, camera)
+  const q = label.sprite.getWorldQuaternion(new THREE.Quaternion())
+  const right = new THREE.Vector3(1, 0, 0).applyQuaternion(q)
+  assert.ok(Math.abs(right.y) < 1e-8)
+  const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(q)
+  assert.ok(normal.distanceTo(camera.position.clone().normalize()) < 1e-8)
+  label.dispose()
+})
+test('world indicator keeps origin and endpoint aligned after locomotion', () => {
+  fixture()
+  const rig = new THREE.Scene(); rig.updateMatrixWorld(true)
+  const indicator = new PinchDragIndicator(rig, new THREE.PerspectiveCamera())
+  indicator.show({ originWorldPosition: new THREE.Vector3(2, 1, 1), rightVector: new THREE.Vector3(1, 0, 0) })
+  assert.equal(indicator.group.visible, true)
+  assert.ok(indicator.origin.distanceTo(new THREE.Vector3(2, 1, 1)) < 1e-8)
+  indicator.update({ currentWorldPosition: new THREE.Vector3(2.12, 1.01, 1.02) })
+  assert.ok(indicator.endpoint.distanceTo(new THREE.Vector3(2.12, 1.01, 1.02)) < 1e-8)
+  assert.ok(indicator.labels[2].sprite.material.opacity < indicator.labels[3].sprite.material.opacity)
+  indicator.hide(); assert.equal(indicator.group.visible, false); indicator.dispose()
+})
+
+test('billboards never overwrite renderer-managed XR eye matrices after rig movement', () => {
+  fixture()
+  const label = createTextLabel('Z'), eye = new THREE.PerspectiveCamera()
+  eye.position.set(.03, 1.6, 0)
+  eye.updateMatrixWorld(true)
+  const rig = new THREE.Matrix4().makeRotationY(.8)
+  rig.setPosition(3, 0, -4)
+  eye.matrixWorld.multiplyMatrices(rig, eye.matrix)
+  eye.matrixWorldInverse.copy(eye.matrixWorld).invert()
+  const world = eye.matrixWorld.clone(), inverse = eye.matrixWorldInverse.clone()
+  label.sprite.onBeforeRender(null, null, eye)
+  assert.deepEqual(eye.matrixWorld.elements, world.elements)
+  assert.deepEqual(eye.matrixWorldInverse.elements, inverse.elements)
+  label.dispose()
+})
+test('drag feedback draws in transparent overlay group and shows only the selected guide', () => {
+  fixture()
+  const ui = new PinchDragIndicator(new THREE.Scene(), new THREE.PerspectiveCamera())
+  ui.show({ originWorldPosition: new THREE.Vector3(), rightVector: new THREE.Vector3(1, 0, 0), pending: true })
+  assert.equal(ui.guideSegment.visible, false)
+  ui.setAxis('horizontal')
+  assert.equal(ui.guideSegment.visible, true)
+  assert.equal(ui.labels[0].sprite.visible, false)
+  assert.equal(ui.labels[2].sprite.visible, true)
+  for (const node of ui.group.children) {
+    assert.equal(node.material.transparent, true)
+    assert.equal(node.material.depthTest, false)
+    assert.equal(node.material.depthWrite, false)
+  }
+  assert.ok(ui.group.renderOrder > 1000)
+  ui.dispose()
 })

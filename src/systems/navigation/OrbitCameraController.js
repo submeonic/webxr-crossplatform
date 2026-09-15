@@ -96,7 +96,7 @@ export class OrbitCameraController {
     return this.settings.defaultDistance
   }
 
-  resetView({ angle = 0, height = 1.6 } = {}) {
+  resetView({ angle = 0, height = this.getTargetPosition().y + 0.15 } = {}) {
     this.state.initialized = true
     this.state.angle = angle
     this.state.distance = this.settings.defaultDistance

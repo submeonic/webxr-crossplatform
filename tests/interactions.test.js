@@ -13,31 +13,38 @@ function pose(x = 0, y = 0, z = 0, started = false) {
 function fixture() {
   const camera = new THREE.PerspectiveCamera()
   const events = []
-  const indicator = { show: value => events.push(['show', value]), update() {}, hide: () => events.push(['hide']) }
+  const indicator = { show: value => events.push(['show', value]), update() {}, setAxis() {}, hide: () => events.push(['hide']) }
   const control = new AxisDragControlSystem({ camera, indicator,
     horizontal: { onChange: value => events.push(['x', value]) },
     vertical: { onChange: value => events.push(['y', value]) } })
   return { control, camera, events }
 }
 
-test('pinch reserves input but does not alter values before threshold', () => {
+test('pinch immediately shows pending feedback without altering values', () => {
   const { control, events } = fixture()
   control.update({ right: pose(0, 0, 0, true) })
   control.update({ right: pose(0.005, 0.003) })
   assert.equal(control.isActive(), true)
   assert.equal(control.axis, null)
-  assert.deepEqual(events, [])
+  assert.equal(events[0][0], 'show')
+  assert.equal(events[0][1].pending, true)
+  assert.equal(events.filter(e => e[0] === 'x' || e[0] === 'y').length, 0)
 })
-test('diagonal ambiguity waits; horizontal lock prevents later vertical action', () => {
+test('direction switches only after a clear lead and resumes without a value jump', () => {
   const { control, events } = fixture()
   control.update({ right: pose(0, 0, 0, true) })
-  control.update({ right: pose(0.02, 0.02) })
-  assert.equal(control.axis, null)
-  control.update({ right: pose(0.05, 0.02) })
-  control.update({ right: pose(0.05, 0.3) })
+  settle(control, { right: pose(.05, .02) })
   assert.equal(control.axis, 'horizontal')
-  assert.equal(events.filter(e => e[0] === 'y').length, 0)
-  near(events.at(-1)[1], 0.05)
+  settle(control, { right: pose(.05, .055) })
+  assert.equal(control.axis, 'horizontal')
+  settle(control, { right: pose(.05, .09) })
+  assert.equal(control.axis, 'vertical')
+  const firstY = events.find(e => e[0] === 'y')
+  near(firstY[1], 0)
+  settle(control, { right: pose(.095, .09) })
+  assert.equal(control.axis, 'vertical')
+  settle(control, { right: pose(.13, .09) })
+  assert.equal(control.axis, 'horizontal')
 })
 test('horizontal follows viewer yaw and stays fixed after head movement', () => {
   const { control, camera, events } = fixture()
@@ -46,7 +53,7 @@ test('horizontal follows viewer yaw and stays fixed after head movement', () => 
   control.update({ left: pose(0, 0, 0, true) })
   camera.rotation.y = 0
   camera.updateMatrixWorld()
-  control.update({ left: pose(0, 0, -0.1) })
+  settle(control, { left: pose(0, 0, -0.1) })
   assert.equal(control.axis, 'horizontal')
   near(events.at(-1)[1], 0.1)
 })
@@ -83,7 +90,7 @@ test('shell clamps independently of yaw and both web and XR use current radius',
     target, getRadius: () => radius,
     setRadius: value => (radius = Math.max(0.25, Math.min(12, value))), minRadius: 0.25, maxRadius: 12 })
   controls.xr.update({ right: pose(0, 0, 0, true) })
-  controls.xr.update({ right: pose(0, 2) })
+  settle(controls.xr, { right: pose(0, 2) })
   assert.equal(radius, 12)
   assert.equal(target.rotation.y, 0)
   controls.xr.reset()
@@ -102,7 +109,7 @@ test('repeated horizontal gestures accumulate rotation instead of resetting it',
     getRadius: () => 1, setRadius: x => x, minRadius: 0.25, maxRadius: 12 })
   for (let i = 0; i < 3; i++) {
     xr.update({ right: pose(0, 0, 0, true) })
-    xr.update({ right: pose(0.1) })
+    settle(xr, { right: pose(0.1) })
     xr.reset()
   }
   near(target.rotation.y, 2.1)
@@ -111,7 +118,7 @@ test('orbital selection is local, deterministic and preserves inspection rotatio
   const root = new THREE.Group(), cloud = new THREE.Group()
   root.add(cloud)
   root.rotation.y = 0.7
-  for (const [id, expected] of [['2px', [1,0,0]], ['2py', [0,1,0]], ['2pz', [0,0,1]], ['2px', [1,0,0]]]) {
+  for (const [id, expected] of [['2px', [1,0,0]], ['2py', [0,1,0]], ['2pz', [0,0,-1]], ['2px', [1,0,0]]]) {
     assert.equal(selectOrbitalOrientation(cloud, id), true)
     const axis = new THREE.Vector3(1,0,0).applyQuaternion(cloud.quaternion)
     assert.ok(axis.distanceTo(new THREE.Vector3(...expected)) < 1e-8)
@@ -132,4 +139,20 @@ test('panel remains finite, upright and tilt-limited even directly above/below v
     assert.ok(Math.abs(normal.y) <= Math.sin(20 * Math.PI / 180) + 1e-8)
     assert.ok(up.y > 0.93)
   }
+})
+
+function settle(control, state) { for (let i = 0; i < 100; i++) control.update(state, 1 / 60) }
+test('smoothing behaves the same at 72 and 90 Hz and filters a sudden sample jump', () => {
+  const displacements = []
+  for (const hz of [72, 90]) {
+    const { control } = fixture()
+    control.update({ right: pose(0, 0, 0, true) })
+    for (let i = 0; i < hz / 2; i++) control.update({ right: pose(.1) }, 1 / hz)
+    displacements.push(control.smoothed.x)
+  }
+  near(displacements[0], displacements[1])
+  const { control } = fixture()
+  control.update({ right: pose(0, 0, 0, true) })
+  control.update({ right: pose(.1) }, 1 / 90)
+  assert.ok(control.smoothed.x > 0 && control.smoothed.x < .03)
 })

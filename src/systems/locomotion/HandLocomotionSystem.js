@@ -120,7 +120,7 @@ export class HandLocomotionSystem {
 
     this.setIntent(intent)
 
-    // A simulation-owned pinch drag has higher input priority than locomotion.
+    // Explicit suppression is available to callers outside the default input policy.
     // Stop residual smoothed motion immediately so the rig cannot drift while
     // the user is adjusting a simulation parameter.
     if (suppressHands) {
@@ -149,13 +149,13 @@ export class HandLocomotionSystem {
 
   getActiveHand(left, right) {
     if (this.settings.activeHandPreference === 'left') {
-      if (left.fistActive) return left
-      if (right.fistActive) return right
+      if (left.visible && left.fistActive) return left
+      if (right.visible && right.fistActive) return right
       return null
     }
 
-    if (right.fistActive) return right
-    if (left.fistActive) return left
+    if (right.visible && right.fistActive) return right
+    if (left.visible && left.fistActive) return left
     return null
   }
 

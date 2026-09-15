@@ -109,8 +109,8 @@ export function createOrbitalSimulation(app, config) {
   const graphPanel = createRadialGraphPanel({
     samples,
     graphConfig: config.graphConfig,
-    widthMeters: config.graphWidthMeters ?? 1.5,
-    heightMeters: config.graphHeightMeters ?? 0.84,
+    widthMeters: config.graphWidthMeters ?? 1.8,
+    heightMeters: config.graphHeightMeters ?? 1.008,
   })
   graphPanel.mesh.position.copy(
     config.graphWorldPosition ?? DEFAULT_GRAPH_POSITION,
@@ -245,20 +245,20 @@ export function createOrbitalSimulation(app, config) {
 
     enter() {
       group.visible = true
-      desktopGraph.setVisible(!app.renderer.xr.isPresenting)
+      desktopGraph.setVisible(true)
     },
 
     exit() {
       group.visible = false
       graphPanel.setVisible(false)
-      desktopGraph.setVisible(false)
+      desktopGraph.setVisible(true)
       controls.xr.reset('simulation-exit')
       if (activityPanel) activityPanel.mesh.visible = false
     },
 
     handleInput(interactionState, context = {}) {
       if (!context.isXR) return
-      controls.xr.update(interactionState)
+      controls.xr.update(interactionState, context.deltaTime)
     },
 
     isXRInteractionActive() {
@@ -273,7 +273,7 @@ export function createOrbitalSimulation(app, config) {
       const isXR = Boolean(context.isXR)
 
       graphPanel.setVisible(isXR)
-      desktopGraph.setVisible(!isXR)
+      desktopGraph.setVisible(true)
 
       if (isXR) updateGraphBillboard()
       activityPanel?.update(isXR, app.camera)

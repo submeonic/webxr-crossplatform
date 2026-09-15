@@ -122,6 +122,10 @@ export class ScrollSimulationController {
 
   getSectionAtViewportActivationLine() {
     const activationLineY = window.innerHeight * 0.5
+    const current = this.activeSectionElement?.getBoundingClientRect()
+    if (current && current.top <= activationLineY + 24 && current.bottom >= activationLineY - 24) {
+      return this.activeSectionElement
+    }
 
     for (const section of this.sections) {
       const rect = section.getBoundingClientRect()
@@ -183,7 +187,7 @@ export class ScrollSimulationController {
   updateFromScroll() {
     this.scrollSwitchQueued = false
 
-    if (this.app.renderer.xr.isPresenting) return
+    if (!this.started || this.app.renderer.xr.isPresenting) return
 
     const closestSection =
       this.getClosestSectionToViewportCenter()

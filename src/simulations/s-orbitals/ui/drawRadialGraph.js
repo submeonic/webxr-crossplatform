@@ -1,3 +1,4 @@
+import { FONT_DISPLAY, FONT_BODY } from '../../../systems/ui/interfaceTheme.js'
 import { BOHR_RADIUS_ANGSTROM } from '../data/sOrbitalDistributions.js'
 
 export const RADIAL_GRAPH_LOGICAL_WIDTH = 500
@@ -11,8 +12,6 @@ const GRAPH_X_MAX = 600
 const GRAPH_INDEX_PER_A0 = 50
 const ACTIVE_BAR_STEP = 10
 
-const FONT_DISPLAY = '"Agency FB", Impact, "Arial Narrow", sans-serif'
-const FONT_BODY = '"Bai Jamjuree", Arial, Helvetica, sans-serif'
 
 const COLORS = {
   background: '#121212',

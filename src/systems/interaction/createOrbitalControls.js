@@ -1,8 +1,9 @@
 import { AxisDragControlSystem } from './AxisDragControlSystem.js'
 
 export const DEFAULT_ORBITAL_CONTROLS = Object.freeze({
-  thresholdMeters: 0.012,
-  dominanceRatio: 1.2,
+  thresholdMeters: 0.006,
+  dominanceRatio: 1.1,
+  switchMarginMeters: 0.012,
   xrYawRadiansPerMeter: 7,
   webYawRadiansPerPixel: 0.008,
   xrShellFullRangeMeters: 0.18,
@@ -26,6 +27,7 @@ export function createOrbitalControls({ app, target, getRadius, setRadius,
     indicator: app.pinchDragIndicator,
     thresholdMeters: tuning.thresholdMeters,
     dominanceRatio: tuning.dominanceRatio,
+    switchMarginMeters: tuning.switchMarginMeters,
     horizontal: {
       onStart: beginYaw,
       onChange: meters => { target.rotation.y = yawStart + meters * tuning.xrYawRadiansPerMeter },

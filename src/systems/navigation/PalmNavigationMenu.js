@@ -1,3 +1,4 @@
+import { FONT_DISPLAY, FONT_BODY } from '../ui/interfaceTheme.js'
 import * as THREE from 'three'
 
 const TEMP_POINTER_LOCAL = new THREE.Vector3()
@@ -7,8 +8,6 @@ const PANEL_LOGICAL_HEIGHT = 556
 const BUTTON_LOGICAL_HEIGHT = 256
 const RENDER_SCALE = 2
 
-const FONT_DISPLAY = '"Agency FB", Impact, "Arial Narrow", sans-serif'
-const FONT_BODY = '"Bai Jamjuree", Arial, Helvetica, sans-serif'
 
 const COLORS = {
   background: '#121212',

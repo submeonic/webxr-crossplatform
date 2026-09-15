@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { computeThumbCurl } from '../interaction/computeThumbCurl.js'
 
 const REQUIRED_JOINTS = [
   'wrist',
@@ -190,6 +191,7 @@ export class HandLocomotionGestureSystem {
       fistActive: false,
       fistConfidence: 0,
 
+      thumbCurl: 1,
       indexCurl: 0,
       middleCurl: 0,
       ringCurl: 0,
@@ -268,6 +270,7 @@ export class HandLocomotionGestureSystem {
     state.fistActive = false
     state.fistConfidence = 0
 
+    state.thumbCurl = 1
     state.indexCurl = 0
     state.middleCurl = 0
     state.ringCurl = 0
@@ -329,6 +332,7 @@ export class HandLocomotionGestureSystem {
     state.fistConfidence = fingerCurlState.fistConfidence
     state.fistActive = fingerCurlState.fistActive
 
+    state.thumbCurl = computeThumbCurl(p, this.settings.curlStartDegrees, this.settings.curlFullDegrees)
     state.indexCurl = fingerCurlState.index
     state.middleCurl = fingerCurlState.middle
     state.ringCurl = fingerCurlState.ring

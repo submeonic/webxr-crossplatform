@@ -4,8 +4,8 @@ const normal = new THREE.Vector3(), right = new THREE.Vector3(), up = new THREE.
 const horizontal = new THREE.Vector3(), matrix = new THREE.Matrix4()
 
 /** Hand position anchors the panel; viewer direction controls facing, independent of palm roll. */
-export function getPalmPanelPose({ palmCenter, viewerPosition, upOffset = 0.15,
-  forwardOffset = 0.08, maxTiltDegrees = 20, fallbackQuaternion }, position, quaternion) {
+export function getPalmPanelPose({ palmCenter, viewerPosition, upOffset = 0.055,
+  forwardOffset = 0.025, fingerDirection, fingerOffset = 0.09, maxTiltDegrees = 20, fallbackQuaternion }, position, quaternion) {
   horizontal.copy(viewerPosition).sub(palmCenter)
   horizontal.y = 0
   if (horizontal.lengthSq() < 1e-6) {
@@ -16,6 +16,7 @@ export function getPalmPanelPose({ palmCenter, viewerPosition, upOffset = 0.15,
   }
   horizontal.normalize()
   position.copy(palmCenter).addScaledVector(UP, upOffset).addScaledVector(horizontal, forwardOffset)
+  if (fingerDirection) position.addScaledVector(fingerDirection, fingerOffset)
   normal.copy(viewerPosition).sub(position)
   const flatDistance = Math.max(0.001, Math.hypot(normal.x, normal.z))
   const tilt = THREE.MathUtils.clamp(Math.atan2(normal.y, flatDistance),

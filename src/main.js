@@ -1,5 +1,6 @@
 import { renderWebActivities } from './simulations/shared/guidedActivities.js'
 import './style.css'
+import { prepareInterfaceTheme } from './systems/ui/interfaceTheme.js'
 
 import { createWebXRApp } from './core/createWebXRApp.js'
 import { ResponsiveViewerPlacementController } from './systems/navigation/ResponsiveViewerPlacementController.js'
@@ -28,6 +29,8 @@ function initializeFadeInAnimations() {
   check()
 }
 
+async function startLesson() {
+  await prepareInterfaceTheme()
 renderWebActivities()
 initializeFadeInAnimations()
 
@@ -78,12 +81,12 @@ const app = createWebXRApp({
   palmNavigationSettings: {
     holdSeconds: 0.25,
     graceSeconds: 0.18,
-    openCurlEnter: 0.5,
-    openCurlExit: 0.68,
+    openCurlEnter: 0.18,
+    openCurlExit: 0.28,
     facingEnterDegrees: 30,
     facingExitDegrees: 30,
-    menuOffsetUp: 0.15,
-    menuOffsetNormal: 0.08,
+    menuOffsetUp: 0.055,
+    menuOffsetNormal: 0.025,
     maxPanelTiltDegrees: 20,
     freezeWhilePoking: true,
     positionSmoothing: 18,
@@ -167,3 +170,9 @@ app.renderer.xr.addEventListener('sessionend', () => {
 
 scrollSimulationController.start()
 app.start()
+
+}
+
+startLesson().catch(error => {
+  console.error('Unable to start orbital lesson:', error)
+})

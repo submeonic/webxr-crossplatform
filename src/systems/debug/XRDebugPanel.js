@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { FONT_DEBUG } from '../ui/interfaceTheme.js'
 
 export class XRDebugPanel {
   constructor(camera) {
@@ -42,7 +43,7 @@ export class XRDebugPanel {
     this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
     this.ctx.fillStyle = 'white'
-    this.ctx.font = '30px monospace'
+    this.ctx.font = `30px ${FONT_DEBUG}`
     this.ctx.textBaseline = 'top'
 
     let y = 24

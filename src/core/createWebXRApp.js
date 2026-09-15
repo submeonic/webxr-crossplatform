@@ -1,4 +1,6 @@
 import * as THREE from 'three'
+import { INTERFACE_THEME } from '../systems/ui/interfaceTheme.js'
+import { updateXRInput } from '../systems/interaction/updateXRInput.js'
 
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
@@ -29,7 +31,7 @@ export function createWebXRApp(options = {}) {
   }
 
   const scene = new THREE.Scene()
-  scene.background = new THREE.Color(0x101010)
+  scene.background = new THREE.Color(INTERFACE_THEME.background)
 
   const camera = new THREE.PerspectiveCamera(75, 1, 0.01, 100)
   camera.position.set(0, 1.6, 3)
@@ -605,54 +607,11 @@ export function createWebXRApp(options = {}) {
       updateXRHandModelVisibility(isXR)
 
       if (isXR) {
-        handLocomotionGestureSystem.update()
-        palmNavigationState = palmNavigationSystem.update(deltaTime)
-
-        handInteractionSystem.update()
-        interactionState = handInteractionSystem.getState()
-
-        const palmMenuOwnsXRInput =
-          palmNavigationState.visible
-
-        if (palmNavigationState.openedThisFrame) {
-          resetActiveXRInteraction('palm-navigation-opened')
-        }
-
-        const inputContext = {
-          app: publicApi,
-          deltaTime,
-          isXR: true,
-          locomotionState: null,
-          interactionState,
-          palmNavigationState,
-        }
-
-        if (!palmMenuOwnsXRInput) {
-          activeSimulation?.handleInput?.(
-            interactionState,
-            inputContext,
-          )
-        }
-
-        const simulationOwnsXRInput =
-          !palmMenuOwnsXRInput &&
-          Boolean(
-            activeSimulation?.isXRInteractionActive?.(),
-          )
-
-        locomotionState = handLocomotionSystem.update(
-          deltaTime,
-          {
-            fallbackIntent: {
-              moveX: 0,
-              moveZ: 0,
-              turnY: 0,
-            },
-            suppressHands:
-              palmMenuOwnsXRInput ||
-              simulationOwnsXRInput,
-          },
-        )
+        ;({ locomotionState, interactionState, palmNavigationState } = updateXRInput({
+          deltaTime, app: publicApi, playerRig, handLocomotionGestureSystem,
+          handLocomotionSystem, handInteractionSystem, palmNavigationSystem,
+          activeSimulation, resetActiveXRInteraction,
+        }))
       } else {
         palmNavigationState = palmNavigationSystem.update(deltaTime)
         orbitCameraController.update(deltaTime)
