@@ -1,6 +1,7 @@
 import * as THREE from 'three'
 
 import { PalmNavigationMenu } from './PalmNavigationMenu.js'
+import { getPalmPanelPose } from './palmPanelPose.js'
 
 const TEMP_WRIST = new THREE.Vector3()
 const TEMP_INDEX_METACARPAL = new THREE.Vector3()
@@ -17,7 +18,6 @@ const TEMP_RIGHT = new THREE.Vector3()
 const TEMP_UP = new THREE.Vector3()
 const TEMP_NORMAL = new THREE.Vector3()
 const TEMP_POSITION = new THREE.Vector3()
-const TEMP_MATRIX = new THREE.Matrix4()
 const TEMP_QUATERNION = new THREE.Quaternion()
 
 function createHandPoseState(handedness) {
@@ -90,8 +90,10 @@ export class PalmNavigationSystem {
       facingEnterDegrees: 40,
       facingExitDegrees: 55,
 
-      menuOffsetUp: 0.105,
-      menuOffsetNormal: 0.028,
+      menuOffsetUp: 0.15,
+      menuOffsetNormal: 0.08,
+      maxPanelTiltDegrees: 20,
+      freezeWhilePoking: true,
 
       positionSmoothing: 18,
       rotationSmoothing: 14,
@@ -213,7 +215,13 @@ export class PalmNavigationSystem {
         null
       : null
 
+    this.activeSimulation = simulation
     this.menu.setActiveSimulationId(simulationId)
+    this.refreshContextActions()
+  }
+
+  refreshContextActions() {
+    this.menu.setContextActions(this.activeSimulation?.getMenuActions?.() ?? [])
   }
 
   isVisible() {
@@ -635,57 +643,20 @@ export class PalmNavigationSystem {
   updateMenuTransform(owner, deltaTime) {
     if (!owner.tracked) return
 
-    TEMP_POSITION
-      .copy(owner.palmCenter)
-      .addScaledVector(
-        owner.palmFingerDirection,
-        this.settings.menuOffsetUp,
-      )
-      .addScaledVector(
-        owner.palmNormal,
-        this.settings.menuOffsetNormal,
-      )
+    // Keep a reachable button still while the opposite fingertip approaches or presses it.
+    // Stop freezing if the owner moves away, avoiding a stranded panel.
+    if (this.hasMenuTransform && this.settings.freezeWhilePoking && this.menu.pointer.visible &&
+        this.menu.group.position.distanceTo(owner.palmCenter) < 0.35) return
 
-    /*
-     * Keep the menu on the palm plane, but remove palm roll:
-     *   local +Z follows the outward palm normal
-     *   local +Y is world up projected onto the palm plane
-     *   local +X completes the right-handed frame
-     *
-     * This is equivalent to rotating around the menu's local Z axis
-     * until the top of the menu is as upright as the palm plane allows.
-     */
-    TEMP_NORMAL.copy(owner.palmNormal).normalize()
-
-    TEMP_UP
-      .copy(WORLD_UP)
-      .addScaledVector(
-        TEMP_NORMAL,
-        -WORLD_UP.dot(TEMP_NORMAL),
-      )
-
-    // A horizontal palm plane makes world-up projection undefined.
-    // In that rare pose, fall back to the anatomical palm-up axis.
-    if (TEMP_UP.lengthSq() <= 0.000001) {
-      TEMP_UP.copy(owner.palmUp)
-    }
-
-    TEMP_UP.normalize()
-
-    TEMP_RIGHT
-      .crossVectors(TEMP_UP, TEMP_NORMAL)
-      .normalize()
-
-    TEMP_UP
-      .crossVectors(TEMP_NORMAL, TEMP_RIGHT)
-      .normalize()
-
-    TEMP_MATRIX.makeBasis(
-      TEMP_RIGHT,
-      TEMP_UP,
-      TEMP_NORMAL,
-    )
-    TEMP_QUATERNION.setFromRotationMatrix(TEMP_MATRIX)
+    this.camera.getWorldPosition(TEMP_CAMERA_POSITION)
+    getPalmPanelPose({
+      palmCenter: owner.palmCenter,
+      viewerPosition: TEMP_CAMERA_POSITION,
+      upOffset: this.settings.menuOffsetUp,
+      forwardOffset: this.settings.menuOffsetNormal,
+      maxTiltDegrees: this.settings.maxPanelTiltDegrees,
+      fallbackQuaternion: this.menu.group.quaternion,
+    }, TEMP_POSITION, TEMP_QUATERNION)
 
     if (!this.hasMenuTransform) {
       this.menu.group.position.copy(TEMP_POSITION)
@@ -756,6 +727,12 @@ export class PalmNavigationSystem {
         })
       }
 
+      return
+    }
+
+    if (activatedItem.kind === 'action') {
+      activatedItem.onSelect?.()
+      this.refreshContextActions()
       return
     }
 

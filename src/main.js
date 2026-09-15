@@ -1,3 +1,4 @@
+import { renderWebActivities } from './simulations/shared/guidedActivities.js'
 import './style.css'
 
 import { createWebXRApp } from './core/createWebXRApp.js'
@@ -27,6 +28,7 @@ function initializeFadeInAnimations() {
   check()
 }
 
+renderWebActivities()
 initializeFadeInAnimations()
 
 const canvasContainer = document.getElementById(
@@ -80,8 +82,10 @@ const app = createWebXRApp({
     openCurlExit: 0.68,
     facingEnterDegrees: 30,
     facingExitDegrees: 30,
-    menuOffsetUp: 0.105,
-    menuOffsetNormal: 0.05,
+    menuOffsetUp: 0.15,
+    menuOffsetNormal: 0.08,
+    maxPanelTiltDegrees: 20,
+    freezeWhilePoking: true,
     positionSmoothing: 18,
     rotationSmoothing: 14,
     activationDelaySeconds: 0.4,
@@ -123,9 +127,6 @@ simulations['2p-orbital'].metadata = {
 
 app.palmNavigationSystem.setSimulations(simulations)
 
-// The future 2p interaction will manipulate its simulation root directly.
-// Keep both camera and object presentation completely still until then.
-simulations['2p-orbital'].idleCameraOrbit = false
 
 for (const simulation of Object.values(simulations)) {
   simulation.exit()

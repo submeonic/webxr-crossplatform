@@ -807,3 +807,28 @@ Responsive behavior:
   pointer-events: none;
 }
 
+
+/* Selection is separate from inspection rotation and shell radius. */
+.orbital-selector {
+  display: flex;
+  justify-content: center;
+  gap: 0.6rem;
+  padding: 0.8rem;
+}
+.orbital-selector[hidden] { display: none; }
+.orbital-selector button {
+  min-width: 4.5rem;
+  min-height: 44px;
+  border: 1px solid #657269;
+  border-radius: 8px;
+  background: #18221d;
+  color: #edf1eb;
+  font: inherit;
+  cursor: pointer;
+}
+.orbital-selector button[aria-pressed="true"] {
+  color: #101710;
+  background: #fff7ae;
+  border-color: #fff7ae;
+}
+.orbital-selector button:focus-visible { outline: 3px solid #80b9ff; outline-offset: 3px; }

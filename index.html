@@ -33,18 +33,17 @@
         <h2>Explore the Chapter Spatially</h2>
         <p>
           Each point in the viewer represents one possible result of
-          measuring an electron’s position. In the 1s and 2s sections, orbit
-          around the cloud and move the thin spherical shell through the
+          measuring an electron’s position. In the 1s and 2s sections, rotate
+          the cloud and move the thin spherical shell through the
           measurements to connect the 3D shape with the radial graph. In the
-          2p section, rotate the orbital itself to compare its three spatial
-          orientations.
+          2p section, select an orbital and rotate its labeled coordinate frame to inspect it.
         </p>
         <p>
           On desktop or touch, use the viewer’s drag gestures and zoom
           controls. In WebXR, use the hand interactions shown for each
-          simulation. The 2p orbital can be pinch-dragged in two directions;
-          when released, it snaps to the nearest 2p<sub>x</sub>,
-          2p<sub>y</sub>, or 2p<sub>z</sub> orientation.
+          simulation. Across all simulations, pinch and drag horizontally to rotate, or vertically to adjust the shell.
+          Open the palm menu and poke 2p<sub>x</sub>, 2p<sub>y</sub>, or 2p<sub>z</sub> to select an orbital.
+          On the web, use the buttons below the viewer.
         </p>
 
         <!-- Future desktop, mobile, and XR interaction GIFs go here -->
@@ -98,7 +97,7 @@
               falls to zero.
             </p>
             <p>
-              Orbit around the atom to see that the node is an empty spherical
+              Rotate the atom to see that the node is an empty spherical
               boundary rather than a flat gap. Move the shell through the inner
               region, across the node, and into the outer peak. The green 2s bars
               share the same axes and scale as the faint yellow 1s comparison,
@@ -130,11 +129,12 @@
               electron measurements.
             </p>
             <p>
-              Drag horizontally and vertically to rotate the probability cloud.
-              In WebXR, pinch and drag it with either hand. When you release,
-              the orbital snaps to the nearest 2p<sub>x</sub>,
-              2p<sub>y</sub>, or 2p<sub>z</sub> orientation. The title above the
-              cloud identifies the current orientation.
+              Choose 2p<sub>x</sub>, 2p<sub>y</sub>, or 2p<sub>z</sub> with the viewer buttons,
+              or the contextual row in the XR palm menu. Drag horizontally to rotate
+              the cloud and its X, Y, Z axes together; drag vertically to move the shell.
+              Selection changes the orbital relative to these axes. Inspection rotation
+              preserves that selection, the shell radius, and the radial distribution.
+              Rotating 2p<sub>y</sub> around Y leaves its overall lobe shape unchanged.
             </p>
 
             <div
@@ -148,41 +148,6 @@
               aria-label="2p orbital radial probability graph with 1s and 2s comparisons"
             ></div>
                         
-            <div class="guided-activity" aria-labelledby="p-orbital-guided-title">
-              <p class="eyebrow">Guided Activity</p>
-              <h3 id="p-orbital-guided-title">Rotate, Compare, Observe</h3>
-              <p>
-                Move through all three snapped orientations and use the 3D
-                probability cloud and radial graph together. Focus on what
-                changes when the orbital rotates and what stays the same.
-              </p>
-              <ol>
-                <li>
-                  <strong>Find the nodal plane.</strong>
-                  In each orientation, where are electron measurements missing?
-                  How does that empty plane move as you switch between
-                  2p<sub>x</sub>, 2p<sub>y</sub>, and 2p<sub>z</sub>?
-                </li>
-                <li>
-                  <strong>Watch the radial graph while you rotate.</strong>
-                  Does the pink 2p distribution change when the lobes point
-                  along a different axis? What does that suggest about the
-                  difference between distance from the nucleus and direction?
-                </li>
-                <li>
-                  <strong>Compare the n = 2 orbitals.</strong>
-                  Compare the pink 2p distribution with the green 2s
-                  distribution. Both belong to the second energy level, but
-                  where does each distribution fall to zero?
-                </li>
-                <li>
-                  <strong>Estimate the most likely distance.</strong>
-                  At about how many Bohr radii does the 2p radial distribution
-                  reach its highest point?
-                </li>
-              </ol>
-            </div>
-            
           </section>
         </main>
 
@@ -204,10 +169,10 @@
 
             <p class="viewer-hint">
               <span class="viewer-hint__desktop">
-                Drag sideways to orbit · drag vertically to adjust · scroll to zoom · XR: pinch and move vertically
+                Drag sideways to rotate · drag vertically for shell radius · scroll to zoom · XR: pinch and drag
               </span>
               <span class="viewer-hint__mobile">
-                Drag sideways to orbit · drag vertically to adjust · pinch to zoom
+                Drag sideways to rotate · drag vertically for shell radius · pinch to zoom
               </span>
             </p>
           </div>

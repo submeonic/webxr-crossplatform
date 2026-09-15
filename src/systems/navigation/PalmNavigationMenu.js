@@ -3,8 +3,7 @@ import * as THREE from 'three'
 const TEMP_POINTER_LOCAL = new THREE.Vector3()
 
 const PANEL_LOGICAL_WIDTH = 600
-const PANEL_LOGICAL_HEIGHT = 400
-const BUTTON_LOGICAL_WIDTH = 512
+const PANEL_LOGICAL_HEIGHT = 556
 const BUTTON_LOGICAL_HEIGHT = 256
 const RENDER_SCALE = 2
 
@@ -92,7 +91,7 @@ export class PalmNavigationMenu {
 
     this.settings = {
       width: 0.205,
-      height: 0.137,
+      height: 0.19,
 
       navigationButtonWidth: 0.046,
       navigationButtonHeight: 0.031,
@@ -287,29 +286,20 @@ export class PalmNavigationMenu {
     this.clearButtons()
     this.resetInteraction({ redraw: false })
 
-    const navigationItems = this.navigationItems.filter(
-      (item) => item.kind !== 'exit',
-    )
-
-    const buttonWidth = this.settings.navigationButtonWidth
-    const gap = this.settings.navigationButtonGap
-    const totalWidth =
-      navigationItems.length * buttonWidth +
-      Math.max(0, navigationItems.length - 1) * gap
-
-    navigationItems.forEach((item, index) => {
-      const x =
-        -totalWidth * 0.5 +
-        buttonWidth * 0.5 +
-        index * (buttonWidth + gap)
-
-      this.buttons.push(this.createButton(item, {
-        x,
-        y: 0.011,
-        width: buttonWidth,
-        height: this.settings.navigationButtonHeight,
-      }))
-    })
+    const addRow = (items, y) => {
+      const width = this.settings.navigationButtonWidth
+      const gap = this.settings.navigationButtonGap
+      const totalWidth = items.length * width + Math.max(0, items.length - 1) * gap
+      items.forEach((item, index) => {
+        this.buttons.push(this.createButton(item, {
+          x: -totalWidth / 2 + width / 2 + index * (width + gap),
+          y, width, height: this.settings.navigationButtonHeight,
+        }))
+      })
+    }
+    const actions = this.navigationItems.filter(item => item.kind === 'action')
+    addRow(this.navigationItems.filter(item => item.kind === 'simulation'), 0.027)
+    addRow(actions, -0.014)
 
     const exitItem =
       this.navigationItems.find((item) => item.kind === 'exit') ??
@@ -321,12 +311,28 @@ export class PalmNavigationMenu {
 
     this.buttons.push(this.createButton(exitItem, {
       x: 0,
-      y: -0.043,
+      y: -0.06,
       width: this.settings.exitButtonWidth,
       height: this.settings.exitButtonHeight,
     }))
 
     this.refreshButtonVisuals()
+  }
+
+  setContextActions(actions) {
+    const current = this.navigationItems.filter(item => item.kind === 'action')
+    if (current.length === actions.length && current.every((item, i) => item.id === actions[i].id)) {
+      // Preserve the press lock until the finger withdraws.
+      for (const button of this.buttons) {
+        if (button.item.kind === 'action') {
+          button.item = actions.find(item => item.id === button.item.id)
+        }
+      }
+      this.navigationItems = [...this.navigationItems.filter(item => item.kind !== 'action'), ...actions]
+      this.refreshButtonVisuals()
+      return
+    }
+    this.setItems([...this.navigationItems.filter(item => item.kind !== 'action'), ...actions])
   }
 
   clearButtons() {
@@ -342,7 +348,7 @@ export class PalmNavigationMenu {
 
   createButton(item, layout) {
     const canvas = document.createElement('canvas')
-    canvas.width = BUTTON_LOGICAL_WIDTH * RENDER_SCALE
+    canvas.width = Math.round(BUTTON_LOGICAL_HEIGHT * layout.width / layout.height) * RENDER_SCALE
     canvas.height = BUTTON_LOGICAL_HEIGHT * RENDER_SCALE
 
     const texture = createCanvasTexture(canvas)
@@ -413,8 +419,8 @@ export class PalmNavigationMenu {
   refreshButtonVisuals() {
     for (const button of this.buttons) {
       button.active =
-        button.item.kind === 'simulation' &&
-        button.item.id === this.activeSimulationId
+        (button.item.kind === 'simulation' && button.item.id === this.activeSimulationId) ||
+        (button.item.kind === 'action' && Boolean(button.item.active))
 
       button.disabled = Boolean(
         button.item.disabled || button.active,
@@ -481,6 +487,7 @@ export class PalmNavigationMenu {
   drawButton(button) {
     const ctx = button.context
     const colors = this.getButtonColors(button)
+    const logicalWidth = button.canvas.width / RENDER_SCALE
 
     ctx.save()
     ctx.setTransform(
@@ -494,7 +501,7 @@ export class PalmNavigationMenu {
     ctx.clearRect(
       0,
       0,
-      BUTTON_LOGICAL_WIDTH,
+      logicalWidth,
       BUTTON_LOGICAL_HEIGHT,
     )
 
@@ -502,7 +509,7 @@ export class PalmNavigationMenu {
       ctx,
       1,
       1,
-      BUTTON_LOGICAL_WIDTH - 2,
+      logicalWidth - 2,
       BUTTON_LOGICAL_HEIGHT - 2,
       {
         fillStyle: colors.fill,
@@ -518,12 +525,12 @@ export class PalmNavigationMenu {
     ctx.textBaseline = 'middle'
     ctx.fillStyle = colors.text
     ctx.font = button.item.kind === 'exit'
-      ? `700 62px ${FONT_BODY}`
+      ? `700 105px ${FONT_BODY}`
       : `bold 112px ${FONT_DISPLAY}`
 
     ctx.fillText(
       button.item.label,
-      BUTTON_LOGICAL_WIDTH * 0.5,
+      logicalWidth * 0.5,
       BUTTON_LOGICAL_HEIGHT * 0.52,
     )
 
