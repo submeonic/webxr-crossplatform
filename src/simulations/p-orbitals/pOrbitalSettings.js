@@ -14,6 +14,7 @@ export function createPOrbitalSettings() {
     a0ToMeters: 0.25, electronRadiusMeters: 0.035, nucleusRadiusMeters: 0.075,
     pointColor: 0xeadfad, pointOpacity: 0.16,
     highlightColor: 0xfff7ae, highlightOpacity: 0.98, shellColor: 0xfff7ae,
+    regionColor: 0xea9fa2, regionRimColor: 0xfff7ae,
     controls: { xrShellFullRangeMeters: 0.18, xrYawRadiansPerMeter: 7 },
     axesLengthMeters: 2.2,
     initialYawRadians: 0,

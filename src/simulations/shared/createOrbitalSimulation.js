@@ -9,6 +9,7 @@ import { createNucleus } from '../s-orbitals/rendering/createNucleus.js'
 import { createOrbitalPointCloud } from '../s-orbitals/rendering/createOrbitalPointCloud.js'
 import { createDesktopRadialGraph } from '../s-orbitals/ui/createDesktopRadialGraph.js'
 import { createRadialGraphPanel } from '../s-orbitals/ui/createRadialGraphPanel.js'
+import { createProbabilityRegion } from './rendering/createProbabilityRegion.js'
 
 const GRAPH_WORLD_POSITION = new THREE.Vector3()
 const CAMERA_WORLD_POSITION = new THREE.Vector3()
@@ -49,12 +50,16 @@ export function createOrbitalSimulation(app, config) {
   orbitalRoot.rotation.y = config.initialYawRadians ?? 0
   contentAnchor.add(orbitalRoot)
 
-  const samples = config.sampleGenerator({
+  let samples = config.sampleGenerator({
     count: config.electronCount ?? 1000,
     seed: config.seed,
     maxRadiusA0: config.sampleMaxRadiusA0,
     a0ToMeters,
   })
+
+  const distributionRoot = new THREE.Group()
+  distributionRoot.name = `${config.label}OrbitalDistributionRoot`
+  orbitalRoot.add(distributionRoot)
 
   const pointCloud = createOrbitalPointCloud({
     samples,
@@ -64,7 +69,19 @@ export function createOrbitalSimulation(app, config) {
     highlightColor: config.highlightColor,
     highlightOpacity: config.highlightOpacity ?? 0.98,
   })
-  orbitalRoot.add(pointCloud.group)
+  distributionRoot.add(pointCloud.group)
+
+  const probabilityRegion = createProbabilityRegion({
+    orbitalType: config.regionOrbitalType ?? config.id,
+    a0ToMeters,
+    enclosedProbability: config.regionProbability ?? 0.9,
+    color: config.regionColor ?? config.highlightColor,
+    rimColor: config.regionRimColor ?? config.shellColor,
+    baseAlpha: config.regionBaseAlpha ?? 0.07,
+    rimAlpha: config.regionRimAlpha ?? 0.42,
+    fresnelPower: config.regionFresnelPower ?? 2.2,
+  })
+  distributionRoot.add(probabilityRegion.group)
 
   const nucleus = createNucleus({
     radiusMeters: config.nucleusRadiusMeters ?? 0.05,
@@ -133,6 +150,8 @@ export function createOrbitalSimulation(app, config) {
   }
 
   let orbitalLabel = config.label
+  let viewMode = 'measurements'
+  let currentSeed = config.seed >>> 0
 
   function getGraphState() {
     return {
@@ -213,6 +232,103 @@ export function createOrbitalSimulation(app, config) {
     },
   })
 
+  const webControls = createWebControls()
+
+  function createWebControls() {
+    const element = document.createElement('div')
+    element.className = 'orbital-selector orbital-controls'
+    element.setAttribute('role', 'group')
+    element.setAttribute('aria-label', `${config.label} orbital controls`)
+    element.hidden = true
+
+    const viewActionsGroup = document.createElement('div')
+    viewActionsGroup.className = 'orbital-control-group orbital-control-group--view'
+    viewActionsGroup.setAttribute('role', 'group')
+    viewActionsGroup.setAttribute('aria-label', 'Probability display and sampling')
+
+    const viewModeButton = document.createElement('button')
+    viewModeButton.type = 'button'
+    viewModeButton.className = 'orbital-region-switch'
+    viewModeButton.textContent = 'REGION'
+    viewModeButton.setAttribute('role', 'switch')
+    viewModeButton.addEventListener('click', toggleViewMode)
+
+    const resampleButton = document.createElement('button')
+    resampleButton.type = 'button'
+    resampleButton.textContent = 'RESAMPLE'
+    resampleButton.setAttribute(
+      'aria-label',
+      'Generate a new set of orbital measurements',
+    )
+    resampleButton.addEventListener('click', () => {
+      resampleMeasurements()
+    })
+
+    viewActionsGroup.append(viewModeButton, resampleButton)
+    element.append(viewActionsGroup)
+    document.querySelector('[data-simulation-viewer]')?.append(element)
+
+    return { element, viewActionsGroup, viewModeButton, resampleButton }
+  }
+
+  function updateWebControls() {
+    const isRegion = viewMode === 'region'
+    webControls.viewModeButton.setAttribute(
+      'aria-checked',
+      String(isRegion),
+    )
+    webControls.viewModeButton.setAttribute(
+      'aria-label',
+      isRegion
+        ? 'Hide the 90% probability region overlay'
+        : 'Show the 90% probability region overlay',
+    )
+  }
+
+  function refreshContextActions() {
+    if (group.visible) {
+      app.palmNavigationSystem?.refreshContextActions?.()
+    }
+  }
+
+  function setViewMode(nextMode) {
+    if (nextMode !== 'measurements' && nextMode !== 'region') return false
+    if (viewMode === nextMode) return true
+
+    viewMode = nextMode
+    const isRegion = viewMode === 'region'
+    pointCloud.group.visible = true
+    shellGroup.visible = true
+    probabilityRegion.group.visible = isRegion
+    updateWebControls()
+    refreshContextActions()
+    return true
+  }
+
+  function toggleViewMode() {
+    return setViewMode(
+      viewMode === 'measurements' ? 'region' : 'measurements',
+    )
+  }
+
+  function resampleMeasurements(seed = createRandomSeed()) {
+    const nextSeed = seed >>> 0
+    const nextSamples = config.sampleGenerator({
+      count: config.electronCount ?? 1000,
+      seed: nextSeed,
+      maxRadiusA0: config.sampleMaxRadiusA0,
+      a0ToMeters,
+    })
+
+    pointCloud.setSamples(nextSamples)
+    samples = nextSamples
+    currentSeed = nextSeed
+    setShellOuterRadiusA0(shellState.outerRadiusA0)
+    return currentSeed
+  }
+
+  updateWebControls()
+
   function updateGraphBillboard() {
     graphPanel.mesh.getWorldPosition(GRAPH_WORLD_POSITION)
     app.camera.getWorldPosition(CAMERA_WORLD_POSITION)
@@ -225,7 +341,7 @@ export function createOrbitalSimulation(app, config) {
   setShellOuterRadiusA0(initialShellOuterRadiusA0)
   app.scene.add(group)
 
-  return {
+  const result = {
     id: config.id,
     name: config.id,
     label: config.label,
@@ -238,7 +354,13 @@ export function createOrbitalSimulation(app, config) {
     simulationRoot,
     contentAnchor,
     orbitalRoot,
+    distributionRoot,
     pointCloudRoot: pointCloud.group,
+    probabilityRegionRoot: probabilityRegion.group,
+    webControlsElement: webControls.element,
+    webViewActionsGroup: webControls.viewActionsGroup,
+    webViewModeButton: webControls.viewModeButton,
+    webResampleButton: webControls.resampleButton,
     settings: config,
     idleCameraOrbit: true,
 
@@ -250,6 +372,7 @@ export function createOrbitalSimulation(app, config) {
     enter() {
       group.visible = true
       desktopGraph.setVisible(true)
+      webControls.element.hidden = app.renderer.xr.isPresenting
       xrIdleElapsedSeconds = 0
     },
 
@@ -257,6 +380,7 @@ export function createOrbitalSimulation(app, config) {
       group.visible = false
       graphPanel.setVisible(false)
       desktopGraph.setVisible(true)
+      webControls.element.hidden = true
       controls.xr.reset('simulation-exit')
       xrIdleElapsedSeconds = 0
       if (activityPanel) activityPanel.mesh.visible = false
@@ -281,6 +405,7 @@ export function createOrbitalSimulation(app, config) {
 
       graphPanel.setVisible(isXR)
       desktopGraph.setVisible(true)
+      webControls.element.hidden = isXR
 
       if (isXR) {
         if (controls.xr.isActive()) {
@@ -315,6 +440,50 @@ export function createOrbitalSimulation(app, config) {
       return samples
     },
 
+    getViewMode() {
+      return viewMode
+    },
+
+    setViewMode(nextMode) {
+      return setViewMode(nextMode)
+    },
+
+    toggleViewMode() {
+      return toggleViewMode()
+    },
+
+    getMeasurementSeed() {
+      return currentSeed
+    },
+
+    resampleMeasurements(seed) {
+      return resampleMeasurements(seed)
+    },
+
+    getProbabilityRegionDefinition() {
+      return probabilityRegion.definition
+    },
+
+    getMenuActions() {
+      return [
+        {
+          id: 'orbital-view-mode',
+          label: 'REGION',
+          kind: 'action',
+          group: 'view',
+          active: viewMode === 'region',
+          onSelect: toggleViewMode,
+        },
+        {
+          id: 'resample-measurements',
+          label: 'RESAMPLE',
+          kind: 'action',
+          group: 'view',
+          onSelect: () => resampleMeasurements(),
+        },
+      ]
+    },
+
     getRadialScaleControlState() {
       return { ...controls.xr.getState(), currentValue: shellState.outerRadiusA0 }
     },
@@ -327,16 +496,30 @@ export function createOrbitalSimulation(app, config) {
       controls.xr.reset('simulation-dispose')
       activityPanel?.dispose()
       app.scene.remove(group)
+      webControls.element.remove()
 
       nucleus.dispose()
       shellGeometry.dispose()
       outerShellMaterial.dispose()
       innerShellMaterial.dispose()
       pointCloud.dispose()
+      probabilityRegion.dispose()
       graphPanel.dispose()
       desktopGraph.dispose()
     },
   }
+
+  return result
+}
+
+function createRandomSeed() {
+  if (globalThis.crypto?.getRandomValues) {
+    const values = new Uint32Array(1)
+    globalThis.crypto.getRandomValues(values)
+    return values[0]
+  }
+
+  return Math.floor(Math.random() * 0x100000000)
 }
 
 function validateConfig(config) {

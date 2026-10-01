@@ -14,6 +14,9 @@ export function createOrbitalPointCloud({
     throw new Error('createOrbitalPointCloud requires samples')
   }
 
+  let currentSamples = samples
+  const capacity = samples.count
+
   const group = new THREE.Group()
   group.name = 'OrbitalPointCloud'
 
@@ -44,31 +47,18 @@ export function createOrbitalPointCloud({
   const baseMesh = new THREE.InstancedMesh(
     electronGeometry,
     baseMaterial,
-    samples.count,
+    capacity,
   )
 
   baseMesh.name = 'BaseElectronSamples'
   baseMesh.instanceMatrix.setUsage(THREE.StaticDrawUsage)
 
-  for (let i = 0; i < samples.count; i++) {
-    const position = samples.positions[i]
-
-    TEMP_MATRIX.makeTranslation(
-      position.x,
-      position.y,
-      position.z,
-    )
-
-    baseMesh.setMatrixAt(i, TEMP_MATRIX)
-  }
-
-  baseMesh.instanceMatrix.needsUpdate = true
   group.add(baseMesh)
 
   const highlightMesh = new THREE.InstancedMesh(
     electronGeometry,
     highlightMaterial,
-    samples.count,
+    capacity,
   )
 
   highlightMesh.name = 'HighlightedElectronSamples'
@@ -78,17 +68,44 @@ export function createOrbitalPointCloud({
 
   group.add(highlightMesh)
 
+  function setSamples(nextSamples) {
+    if (!nextSamples || nextSamples.count > capacity) {
+      throw new Error(
+        `Orbital point cloud supports at most ${capacity} samples`,
+      )
+    }
+
+    currentSamples = nextSamples
+    baseMesh.count = currentSamples.count
+
+    for (let i = 0; i < currentSamples.count; i++) {
+      const position = currentSamples.positions[i]
+
+      TEMP_MATRIX.makeTranslation(
+        position.x,
+        position.y,
+        position.z,
+      )
+
+      baseMesh.setMatrixAt(i, TEMP_MATRIX)
+    }
+
+    baseMesh.instanceMatrix.needsUpdate = true
+    highlightMesh.count = 0
+    highlightMesh.visible = false
+  }
+
   function updateHighlight(innerRadiusA0, outerRadiusA0) {
     let highlightCount = 0
 
-    for (let i = 0; i < samples.count; i++) {
-      const radiusA0 = samples.radiiA0[i]
+    for (let i = 0; i < currentSamples.count; i++) {
+      const radiusA0 = currentSamples.radiiA0[i]
 
       if (
         radiusA0 >= innerRadiusA0 &&
         radiusA0 < outerRadiusA0
       ) {
-        const position = samples.positions[i]
+        const position = currentSamples.positions[i]
 
         TEMP_MATRIX.makeTranslation(
           position.x,
@@ -109,6 +126,8 @@ export function createOrbitalPointCloud({
     return highlightCount
   }
 
+  setSamples(samples)
+
   function dispose() {
     electronGeometry.dispose()
     baseMaterial.dispose()
@@ -119,7 +138,8 @@ export function createOrbitalPointCloud({
     group,
     baseMesh,
     highlightMesh,
-    samples,
+    get samples() { return currentSamples },
+    setSamples,
     updateHighlight,
     dispose,
   }

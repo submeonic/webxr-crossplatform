@@ -38,6 +38,8 @@ export function create1SOrbitalSimulation(app) {
     highlightColor: 0xfff7ae,
     highlightOpacity: 0.98,
     shellColor: 0xfff7ae,
+    regionColor: 0xfff7ae,
+    regionRimColor: 0xea9fa2,
 
     desktopGraphContainerId: '1s-orbital-desktop-graph',
     desktopGraphAriaLabel:

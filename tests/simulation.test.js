@@ -18,8 +18,14 @@ function element() {
   })
   return { hidden: false, children: [], style: {}, classList: { toggle() {} },
     getContext: () => context, setAttribute: (k,v) => attributes.set(k,v),
-    getAttribute: k => attributes.get(k),
-    addEventListener() {}, removeEventListener() {}, remove() {}, append(...children) { this.children.push(...children) } }
+    getAttribute: k => attributes.get(k), querySelector: () => null,
+    addEventListener() {}, removeEventListener() {}, remove() {},
+    append(...children) { this.children.push(...children) },
+    insertBefore(child, reference) {
+      const index = this.children.indexOf(reference)
+      if (index < 0) this.children.push(child)
+      else this.children.splice(index, 0, child)
+    } }
 }
 function fixture() {
   const viewer = element()
@@ -45,6 +51,9 @@ test('all simulations share controls, shell limits, and XR-only panel lifecycle'
     simulation.enter()
     assert.ok(simulation.getWebInteractionProfile().horizontalDrag)
     assert.ok(simulation.getWebInteractionProfile().verticalDrag)
+    assert.equal(simulation.getViewMode(), 'measurements')
+    assert.equal(simulation.pointCloudRoot.visible, true)
+    assert.equal(simulation.probabilityRegionRoot.visible, false)
     assert.equal(simulation.idleCameraOrbit, true)
     simulation.setShellOuterRadiusA0(-20)
     assert.equal(simulation.getShellState().outerRadiusA0, 0.25)
@@ -60,6 +69,22 @@ test('all simulations share controls, shell limits, and XR-only panel lifecycle'
     simulation.update(1/60, { isXR: false })
     assert.equal(activity.visible, false)
     assert.equal(graph.visible, false)
+    simulation.setViewMode('region')
+    assert.ok(simulation.getWebInteractionProfile().verticalDrag)
+    assert.equal(simulation.pointCloudRoot.visible, true)
+    assert.equal(simulation.probabilityRegionRoot.visible, true)
+    assert.equal(
+      simulation.orbitalRoot.children.find(
+        child => child.name.endsWith('ConstantThicknessFresnelShell'),
+      ).visible,
+      true,
+    )
+    assert.equal(simulation.webResampleButton.hidden, false)
+    assert.equal(simulation.webViewModeButton.getAttribute('role'), 'switch')
+    assert.equal(simulation.webViewModeButton.getAttribute('aria-checked'), 'true')
+    simulation.setViewMode('measurements')
+    assert.ok(simulation.getWebInteractionProfile().verticalDrag)
+    assert.equal(simulation.webViewModeButton.getAttribute('aria-checked'), 'false')
     simulation.exit()
     assert.equal(simulation.group.visible, false)
     simulation.dispose()
@@ -117,6 +142,16 @@ test('2p selection preserves radius, highlight count, sample identity, and inspe
     assert.equal(p.getMenuActions().filter(a => a.active).length, 1)
   }
   assert.equal(p.selectOrbital('bad-id'), false)
+  const orientationGroup = p.webControlsElement.children[0]
+  assert.equal(orientationGroup.getAttribute('role'), 'radiogroup')
+  assert.deepEqual(
+    orientationGroup.children.map(button => button.getAttribute('role')),
+    ['radio', 'radio', 'radio'],
+  )
+  assert.deepEqual(
+    orientationGroup.children.map(button => button.getAttribute('aria-checked')),
+    ['true', 'false', 'false'],
+  )
   p.enter()
   assert.equal(viewer.children[0].hidden, false)
   p.update(0, {isXR:true})
@@ -129,9 +164,35 @@ test('selecting another orbital preserves transformed sample distances', () => {
   const p = createPOrbitalSimulation(app)
   p.selectOrbital('2pz')
   for (const position of p.getSamples().positions.slice(0,50)) {
-    const rotated = position.clone().applyQuaternion(p.pointCloudRoot.quaternion)
+    const rotated = position.clone().applyQuaternion(p.distributionRoot.quaternion)
     assert.ok(Math.abs(rotated.length() - position.length()) < 1e-8)
   }
+  p.dispose()
+})
+
+test('resampling replaces outcomes but preserves inspection, selection, and shell state', () => {
+  const { app } = fixture()
+  const p = createPOrbitalSimulation(app)
+  p.selectOrbital('2pz')
+  p.orbitalRoot.rotation.y = 0.73
+  p.setShellOuterRadiusA0(4.25)
+  p.setViewMode('region')
+  const previousSamples = p.getSamples()
+  const previousFirstPosition = previousSamples.positions[0].clone()
+  const shell = p.getShellState()
+
+  assert.equal(p.resampleMeasurements(0x12345678), 0x12345678)
+  assert.notEqual(p.getSamples(), previousSamples)
+  assert.ok(!p.getSamples().positions[0].equals(previousFirstPosition))
+  assert.equal(p.getShellState().outerRadiusA0, shell.outerRadiusA0)
+  assert.equal(p.getShellState().innerRadiusA0, shell.innerRadiusA0)
+  assert.ok(p.getShellState().highlightedCount >= 0)
+  assert.equal(p.getSelectedOrbital(), '2pz')
+  assert.equal(p.orbitalRoot.rotation.y, 0.73)
+  assert.equal(p.getMeasurementSeed(), 0x12345678)
+  assert.equal(p.pointCloudRoot.visible, true)
+  assert.equal(p.probabilityRegionRoot.visible, true)
+  assert.equal(p.webResampleButton.hidden, false)
   p.dispose()
 })
 test('context action rows fit panel and preserve poke lock across selection changes', () => {
@@ -157,6 +218,51 @@ test('context action rows fit panel and preserve poke lock across selection chan
   assert.equal(menu.updatePointer(at(0.003)), null)
   assert.equal(menu.updatePointer(at(0.03)), null)
   assert.equal(menu.interaction.lockedButton, null)
+  menu.dispose()
+})
+
+test('XR separates orientation and view actions into full-size poke rows', () => {
+  const { app } = fixture()
+  const menu = new PalmNavigationMenu(app.scene)
+  menu.setItems(['1s','2s','2p'].map(id => ({id, label:id, kind:'simulation'})))
+  const actions = [
+    ...['2px','2py','2pz'].map(id => ({id, label:id, kind:'action', group:'orientation'})),
+    {id:'view', label:'REGION', kind:'action', group:'view'},
+    {id:'resample', label:'RESAMPLE', kind:'action', group:'view'},
+  ]
+  menu.setContextActions(actions)
+  menu.setVisible(true)
+
+  for (const button of menu.buttons) {
+    assert.ok(Math.abs(button.layout.x) + button.layout.width / 2 < menu.settings.width / 2)
+    assert.ok(Math.abs(button.layout.y) + button.layout.height / 2 < menu.settings.height / 2)
+  }
+  const orientationButtons = menu.buttons.filter(button => button.item.group === 'orientation')
+  const viewButtons = menu.buttons.filter(button => button.item.group === 'view')
+  assert.equal(new Set(orientationButtons.map(button => button.layout.y)).size, 1)
+  assert.equal(new Set(viewButtons.map(button => button.layout.y)).size, 1)
+  assert.notEqual(orientationButtons[0].layout.y, viewButtons[0].layout.y)
+  assert.ok([...orientationButtons, ...viewButtons].every(
+    button =>
+      button.layout.width === menu.settings.navigationButtonWidth &&
+      button.layout.height === menu.settings.navigationButtonHeight,
+  ))
+  const rowGap = Math.abs(
+    orientationButtons[0].layout.y - viewButtons[0].layout.y,
+  ) - menu.settings.navigationButtonHeight
+  assert.ok(rowGap > 0)
+
+  const viewButton = menu.buttons.find(button => button.item.id === 'view')
+  const at = z => new THREE.Vector3(viewButton.layout.x, viewButton.layout.y, z)
+  menu.updatePointer(at(0.03))
+  assert.equal(menu.updatePointer(at(0.004)).id, 'view')
+  menu.setContextActions(actions.map(action =>
+    action.id === 'view' ? {...action, active:true} : action))
+  assert.equal(menu.interaction.lockedButton, viewButton)
+  assert.ok(menu.buttons.some(button => button.item.id === 'resample'))
+  menu.updatePointer(at(0.03))
+  assert.equal(menu.interaction.lockedButton, null)
+  assert.ok(menu.buttons.some(button => button.item.id === 'resample'))
   menu.dispose()
 })
 test('finger must approach from the front, never trigger by appearing behind a button', () => {

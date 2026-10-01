@@ -44,6 +44,8 @@ export function create2SOrbitalSimulation(app) {
     highlightColor: 0xfff7ae,
     highlightOpacity: 0.98,
     shellColor: 0xfff7ae,
+    regionColor: 0x6ecf7f,
+    regionRimColor: 0xfff7ae,
 
     desktopGraphContainerId: '2s-orbital-desktop-graph',
     desktopGraphAriaLabel:

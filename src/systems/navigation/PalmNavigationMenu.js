@@ -155,6 +155,7 @@ export class PalmNavigationMenu {
     this.buttons = []
     this.navigationItems = []
     this.activeSimulationId = null
+    this.pendingContextActions = null
 
     this.interaction = {
       activeButton: null,
@@ -268,14 +269,6 @@ export class PalmNavigationMenu {
     ctx.lineTo(PANEL_LOGICAL_WIDTH - 42, 89)
     ctx.stroke()
 
-    ctx.fillStyle = COLORS.mutedText
-    ctx.font = `600 18px ${FONT_BODY}`
-    ctx.fillText(
-      'Press with opposite index finger',
-      PANEL_LOGICAL_WIDTH * 0.5,
-      PANEL_LOGICAL_HEIGHT - 20,
-    )
-
     ctx.restore()
     this.panelTexture.needsUpdate = true
   }
@@ -285,9 +278,25 @@ export class PalmNavigationMenu {
     this.clearButtons()
     this.resetInteraction({ redraw: false })
 
-    const addRow = (items, y) => {
-      const width = this.settings.navigationButtonWidth
-      const gap = this.settings.navigationButtonGap
+    const addRow = (items, y, { fitPanel = false } = {}) => {
+      if (items.length === 0) return
+
+      const maximumRowWidth = this.settings.width - 0.016
+      const preferredGap = fitPanel
+        ? Math.min(this.settings.navigationButtonGap, 0.006)
+        : this.settings.navigationButtonGap
+      const gap = items.length > 1
+        ? Math.min(
+          preferredGap,
+          maximumRowWidth / (items.length - 1) * 0.18,
+        )
+        : 0
+      const fittedWidth = (
+        maximumRowWidth - Math.max(0, items.length - 1) * gap
+      ) / items.length
+      const width = fitPanel
+        ? Math.min(this.settings.navigationButtonWidth, fittedWidth)
+        : this.settings.navigationButtonWidth
       const totalWidth = items.length * width + Math.max(0, items.length - 1) * gap
       items.forEach((item, index) => {
         this.buttons.push(this.createButton(item, {
@@ -296,9 +305,27 @@ export class PalmNavigationMenu {
         }))
       })
     }
-    const actions = this.navigationItems.filter(item => item.kind === 'action')
-    addRow(this.navigationItems.filter(item => item.kind === 'simulation'), 0.027)
-    addRow(actions, -0.014)
+    const actions = this.navigationItems.filter(
+      item => item.kind === 'action' && !item.hidden,
+    )
+    const orientationActions = actions.filter(
+      item => item.group === 'orientation',
+    )
+    const viewActions = actions.filter(
+      item => item.group !== 'orientation',
+    )
+    const hasTwoActionRows = orientationActions.length > 0 && viewActions.length > 0
+
+    addRow(
+      this.navigationItems.filter(item => item.kind === 'simulation'),
+      hasTwoActionRows ? 0.04 : 0.027,
+    )
+    if (hasTwoActionRows) {
+      addRow(orientationActions, 0)
+      addRow(viewActions, -0.04)
+    } else {
+      addRow(actions, -0.014, { fitPanel: actions.length > 3 })
+    }
 
     const exitItem =
       this.navigationItems.find((item) => item.kind === 'exit') ??
@@ -310,7 +337,7 @@ export class PalmNavigationMenu {
 
     this.buttons.push(this.createButton(exitItem, {
       x: 0,
-      y: -0.06,
+      y: hasTwoActionRows ? -0.075 : -0.06,
       width: this.settings.exitButtonWidth,
       height: this.settings.exitButtonHeight,
     }))
@@ -319,8 +346,19 @@ export class PalmNavigationMenu {
   }
 
   setContextActions(actions) {
+    if (this.interaction.lockedButton) {
+      this.pendingContextActions = [...actions]
+      return
+    }
+
     const current = this.navigationItems.filter(item => item.kind === 'action')
-    if (current.length === actions.length && current.every((item, i) => item.id === actions[i].id)) {
+    const currentVisible = current.filter(item => !item.hidden)
+    const nextVisible = actions.filter(item => !item.hidden)
+    const sameLayout =
+      currentVisible.length === nextVisible.length &&
+      currentVisible.every((item, i) => item.id === nextVisible[i].id)
+
+    if (sameLayout) {
       // Preserve the press lock until the finger withdraws.
       for (const button of this.buttons) {
         if (button.item.kind === 'action') {
@@ -399,6 +437,11 @@ export class PalmNavigationMenu {
     if (!nextVisible) {
       this.resetInteraction()
       this.pointer.visible = false
+      if (this.pendingContextActions) {
+        const pending = this.pendingContextActions
+        this.pendingContextActions = null
+        this.setContextActions(pending)
+      }
     }
   }
 
@@ -422,7 +465,8 @@ export class PalmNavigationMenu {
         (button.item.kind === 'action' && Boolean(button.item.active))
 
       button.disabled = Boolean(
-        button.item.disabled || button.active,
+        button.item.disabled ||
+        (button.active && button.item.kind === 'simulation'),
       )
 
       this.drawButton(button)
@@ -523,9 +567,21 @@ export class PalmNavigationMenu {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = colors.text
-    ctx.font = button.item.kind === 'exit'
-      ? `700 105px ${FONT_BODY}`
-      : `bold 112px ${FONT_DISPLAY}`
+    const fontFamily = button.item.kind === 'exit'
+      ? FONT_BODY
+      : FONT_DISPLAY
+    const fontWeight = button.item.kind === 'exit'
+      ? 700
+      : 'bold'
+    let fontSize = button.item.kind === 'exit' ? 105 : 112
+    ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
+
+    const maximumTextWidth = logicalWidth - 24
+    const measuredWidth = ctx.measureText(button.item.label).width
+    if (measuredWidth > maximumTextWidth) {
+      fontSize *= maximumTextWidth / measuredWidth
+      ctx.font = `${fontWeight} ${fontSize}px ${fontFamily}`
+    }
 
     ctx.fillText(
       button.item.label,
@@ -638,6 +694,12 @@ export class PalmNavigationMenu {
     this.interaction.activeButton = null
     this.interaction.previousPressProgress = 0
     this.interaction.armed = false
+
+    if (this.pendingContextActions) {
+      const pending = this.pendingContextActions
+      this.pendingContextActions = null
+      this.setContextActions(pending)
+    }
   }
 
   updatePointer(pointerWorldPosition, interactionEnabled = true) {

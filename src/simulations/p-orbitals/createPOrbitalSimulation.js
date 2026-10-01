@@ -14,31 +14,39 @@ export function createPOrbitalSimulation(app) {
   simulation.contentAnchor.add(title.sprite)
   let selected = '2px'
 
-  const selector = document.createElement('div')
-  selector.className = 'orbital-selector'
-  selector.setAttribute('role', 'group')
-  selector.setAttribute('aria-label', 'Choose a 2p orbital')
-  selector.hidden = true
+  simulation.webControlsElement.setAttribute(
+    'aria-label',
+    'Choose a 2p orbital, probability display, and sample set',
+  )
+  simulation.webControlsElement.className += ' orbital-controls--with-orientation'
+  const orientationGroup = document.createElement('div')
+  orientationGroup.className = 'orbital-control-group orbital-control-group--orientation'
+  orientationGroup.setAttribute('role', 'radiogroup')
+  orientationGroup.setAttribute('aria-label', '2p orbital orientation')
+  simulation.webControlsElement.insertBefore(
+    orientationGroup,
+    simulation.webViewActionsGroup,
+  )
   const buttons = new Map()
   for (const orbital of P_ORBITALS) {
     const button = document.createElement('button')
     button.type = 'button'
     button.textContent = orbital.label
-    button.setAttribute('aria-pressed', String(orbital.id === selected))
+    button.setAttribute('role', 'radio')
+    button.setAttribute('aria-checked', String(orbital.id === selected))
     button.addEventListener('click', () => selectOrbital(orbital.id))
-    selector.append(button)
+    orientationGroup.append(button)
     buttons.set(orbital.id, button)
   }
-  document.querySelector('[data-simulation-viewer]')?.append(selector)
 
   function selectOrbital(id) {
     if (!P_ORBITALS.some(item => item.id === id)) return false
     simulation.resetXRInteraction('orbital-selected')
-    selectOrbitalOrientation(simulation.pointCloudRoot, id)
+    selectOrbitalOrientation(simulation.distributionRoot, id)
     selected = id
     title.setLabel(id)
     simulation.setOrbitalLabel(id)
-    for (const [key, button] of buttons) button.setAttribute('aria-pressed', String(key === id))
+    for (const [key, button] of buttons) button.setAttribute('aria-checked', String(key === id))
     // Updates the contextual row without rebuilding buttons during a poke.
     if (app.getActiveSimulation?.() === result) app.palmNavigationSystem.refreshContextActions()
     return true
@@ -50,21 +58,14 @@ export function createPOrbitalSimulation(app) {
     selectOrbital,
     getSelectedOrbital: () => selected,
     getOrientationState: () => ({ orientationId: selected, orientationLabel: selected, snapping: false }),
-    getMenuActions: () => P_ORBITALS.map(item => ({
-      ...item, kind: 'action', active: selected === item.id,
-      onSelect: () => selectOrbital(item.id),
-    })),
-    enter() {
-      simulation.enter()
-      selector.hidden = app.renderer.xr.isPresenting
-    },
-    exit() { simulation.exit(); selector.hidden = true },
-    update(deltaTime, context) {
-      simulation.update(deltaTime, context)
-      selector.hidden = Boolean(context.isXR)
-    },
+    getMenuActions: () => [
+      ...P_ORBITALS.map(item => ({
+        ...item, kind: 'action', group: 'orientation', active: selected === item.id,
+        onSelect: () => selectOrbital(item.id),
+      })),
+      ...simulation.getMenuActions(),
+    ],
     dispose() {
-      selector.remove()
       axes.dispose()
       title.dispose()
       simulation.dispose()

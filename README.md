@@ -1,10 +1,11 @@
 # LearnQM orbital viewer
 
 An interactive hydrogen-orbital lesson built with JavaScript, Three.js, WebXR,
-and Vite. The page connects three representations of the same probability
+and Vite. The page connects four representations of the same probability
 distribution:
 
 - a seeded 3D point cloud of possible electron measurements;
+- a constant-density boundary enclosing 90% of the orbital probability;
 - a constant-thickness spherical shell that selects points by radius; and
 - a radial-probability graph synchronized with that shell.
 
@@ -26,6 +27,13 @@ settings live in the simulation factories. All three use a shell range of
 0.25–12 a₀, an initial outer radius of 5.35 a₀, and a shell thickness of 0.25 a₀.
 The graph shows the analytic radial distribution while the count above it reports
 how many sampled points lie inside the selected shell.
+
+The Region switch overlays a static 90% highest-density region while leaving
+the sample cloud and scanning shell visible. The 1s region has one spherical boundary;
+2s has a compact inner component and a separate outer shell; and 2p has two
+lobes that follow the selected x, y, or z orientation. Resample creates a new
+set of measurement outcomes while preserving the camera, inspection rotation,
+shell radius, 2p orientation, and region visibility.
 
 Changing a 2p orientation rotates the existing canonical 2px sample cloud. It
 does not regenerate samples, change sample radii, reset the shell, or reset the
@@ -64,6 +72,8 @@ that directory.
 | Two-finger pinch/stretch | Dolly the camera |
 | W/S or Up/Down | Dolly the camera |
 | A/D or Left/Right | Orbit the camera |
+| Region switch | Show or hide the 90% probability region over the sampled outcomes |
+| Resample button | Generate another set of measurement outcomes |
 
 A one-pointer gesture remains pending until it moves 8 pixels, then locks to the
 dominant horizontal or vertical axis. Multi-pointer gestures must fully release
@@ -73,8 +83,10 @@ Pointer loss, window blur, or page visibility loss cancels active web input.
 The simulation-specific web interaction profile owns horizontal and vertical
 drag. Pinch, wheel, and keyboard input remain camera controls. After two seconds
 without web input, the camera resumes a 5°/s orbit around the active simulation.
-The 2p simulation adds 2px, 2py, and 2pz buttons below the web viewer; the same
-choices appear as contextual actions in the XR palm menu.
+Every simulation adds Region and Resample controls below the web viewer.
+The 2p simulation also adds a 2px, 2py, and 2pz radio group. The same choices
+appear as contextual actions in the XR palm menu, where orientation and view
+actions use separate rows to preserve comfortable poke targets.
 
 ### Immersive XR
 
@@ -171,7 +183,9 @@ simulation group
 └── stationary presentation root
     ├── content anchor
     │   └── rotating/scaled orbital root
-    │       ├── point cloud
+    │       ├── orientable distribution root
+    │       │   ├── point cloud
+    │       │   └── 90% probability-region boundary
     │       ├── nucleus
     │       ├── inner and outer shell meshes
     │       └── p-only labeled coordinate axes
@@ -191,7 +205,9 @@ Every simulation exposes a common lifecycle and state API:
 - `handleInput()` routes XR interaction to the active simulation;
 - `getWebInteractionProfile()` supplies simulation-aware web gestures;
 - `getShellState()` and `setShellOuterRadiusA0()` expose shell state;
-- `getSamples()` exposes the fixed sample set for verification;
+- `getSamples()` exposes the current sample set for verification;
+- `getViewMode()` / `setViewMode()` show or hide the Region overlay;
+- `resampleMeasurements()` replaces outcomes without resetting inspection state;
 - `getMenuActions()` optionally supplies contextual palm-menu actions;
 - `dispose()` releases geometries, materials, textures, graphs, and listeners.
 
@@ -256,7 +272,7 @@ Mobile layout has a strict no-jump contract. Every lesson section reserves the
 compact height its viewer will need even while the shared viewer is elsewhere:
 
 - the 4:3 canvas plus label and hint in every section;
-- an additional 56px selector row only for 2p;
+- an additional 56px control row for every orbital;
 - an additional 60px XR-button row only when XR is available;
 - 64px of standard label/hint chrome, increased to 108px at 450px and below
   where the viewer label wraps.
@@ -296,8 +312,8 @@ objects containing identity, label, role, render style, color, opacity, and a
 each live simulation: 2p mutates its active dataset label when orientation changes.
 
 Keep mutable state—radius, selection, and current rotation—outside shared config
-objects. Selection changes should transform a child such as `pointCloudRoot`, not
-overwrite the parent inspection rotation.
+objects. Selection changes should transform a child such as `distributionRoot`,
+not overwrite the parent inspection rotation.
 
 ## Adding another simulation
 
