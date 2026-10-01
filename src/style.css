@@ -654,13 +654,29 @@ Responsive behavior:
     align-self: stretch;
   }
 
-  /* Every section reserves exactly the same viewer footprint, occupied or not.
-     The shared WebGL canvas can move without changing document geometry. */
+  /* Reserve the compact viewer footprint in every section so moving the shared
+     viewer never changes page geometry. 2p reserves one extra selector row. */
   .mobile-viewer-slot {
+    --mobile-viewer-chrome-height: 64px;
+    --mobile-viewer-xr-height: 0px;
+    --mobile-viewer-selector-height: 0px;
+
     display: block;
     position: relative;
     margin: 2rem 0;
-    padding-bottom: 244px;
+    padding-bottom: calc(
+      var(--mobile-viewer-chrome-height) +
+      var(--mobile-viewer-xr-height) +
+      var(--mobile-viewer-selector-height)
+    );
+  }
+
+  .mobile-viewer-slot[data-viewer-slot='2p-orbital'] {
+    --mobile-viewer-selector-height: 56px;
+  }
+
+  .xr-available .mobile-viewer-slot {
+    --mobile-viewer-xr-height: 60px;
   }
 
   .mobile-viewer-slot::before {
@@ -672,7 +688,7 @@ Responsive behavior:
   .mobile-viewer-slot:empty::after {
     content: 'Scroll this section into view to explore in 3D';
     position: absolute;
-    inset: 0 0 244px;
+    inset: 0;
     display: grid;
     place-content: center;
     padding: 2rem;
@@ -689,16 +705,13 @@ Responsive behavior:
     height: 100%;
     min-height: 0;
     display: grid;
-    grid-template-rows: 44px minmax(0, 1fr) 48px 60px 44px;
+    grid-template-rows: none;
     gap: 12px;
     align-content: start;
   }
 
-  .mobile-viewer-slot .viewer-label { grid-row: 1; }
-  .mobile-viewer-slot #xr-canvas-container { grid-row: 2; height: 100%; aspect-ratio: auto; }
-  .mobile-viewer-slot #xr-button-container { grid-row: 3; }
-  .mobile-viewer-slot .viewer-hint { grid-row: 4; }
-  .mobile-viewer-slot .orbital-selector { grid-row: 5; padding: 0; }
+  .mobile-viewer-slot .orbital-selector { padding: 0; }
+  .mobile-viewer-slot .orbital-selector[hidden] { display: none; }
   .lesson-section .viewer-hint { margin: 0; font-size: 14px; line-height: 20px; }
 
   #xr-canvas-container {
@@ -736,6 +749,10 @@ Responsive behavior:
 }
 
 @media (max-width: 450px) {
+  .mobile-viewer-slot {
+    --mobile-viewer-chrome-height: 108px;
+  }
+
   .title-row h1 {
     font-size: 30px;
     line-height: 44px;

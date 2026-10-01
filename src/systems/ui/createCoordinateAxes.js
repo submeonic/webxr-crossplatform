@@ -1,15 +1,13 @@
 import * as THREE from 'three'
 import { createTextLabel } from './createTextLabel.js'
+import { DISPLAY_COORDINATE_AXES } from './displayCoordinateSystem.js'
 
 export function createCoordinateAxes(length = 2.2) {
   const group = new THREE.Group()
   group.name = 'OrbitalCoordinateAxes'
   const labels = []
-  for (const [name, direction, color] of [
-    ['X', new THREE.Vector3(1, 0, 0), '#f47575'],
-    ['Y', new THREE.Vector3(0, 1, 0), '#86d98d'],
-    ['Z', new THREE.Vector3(0, 0, -1), '#80b9ff'],
-  ]) {
+  for (const { name, direction: directionArray, color } of DISPLAY_COORDINATE_AXES) {
+    const direction = new THREE.Vector3().fromArray(directionArray)
     // Cylinders retain a readable width in stereo, unlike implementation-dependent line widths.
     const material = new THREE.MeshBasicMaterial({ color, toneMapped: false })
     const shaft = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, length * 2, 8), material)

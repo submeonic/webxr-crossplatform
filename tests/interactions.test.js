@@ -5,6 +5,7 @@ import { AxisDragControlSystem } from '../src/systems/interaction/AxisDragContro
 import { createOrbitalControls } from '../src/systems/interaction/createOrbitalControls.js'
 import { selectOrbitalOrientation } from '../src/simulations/p-orbitals/OrbitalSelection.js'
 import { getPalmPanelPose } from '../src/systems/navigation/palmPanelPose.js'
+import { getDisplayAxisDirection } from '../src/systems/ui/displayCoordinateSystem.js'
 
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-8, `${a} != ${b}`)
 function pose(x = 0, y = 0, z = 0, started = false) {
@@ -139,7 +140,7 @@ test('orbital selection is local, deterministic and preserves inspection rotatio
   const root = new THREE.Group(), cloud = new THREE.Group()
   root.add(cloud)
   root.rotation.y = 0.7
-  for (const [id, expected] of [['2px', [1,0,0]], ['2py', [0,1,0]], ['2pz', [0,0,-1]], ['2px', [1,0,0]]]) {
+  for (const [id, expected] of [['2px', [1,0,0]], ['2py', [0,0,-1]], ['2pz', [0,1,0]], ['2px', [1,0,0]]]) {
     assert.equal(selectOrbitalOrientation(cloud, id), true)
     const axis = new THREE.Vector3(1,0,0).applyQuaternion(cloud.quaternion)
     assert.ok(axis.distanceTo(new THREE.Vector3(...expected)) < 1e-8)
@@ -148,6 +149,11 @@ test('orbital selection is local, deterministic and preserves inspection rotatio
   const before = cloud.quaternion.clone()
   assert.equal(selectOrbitalOrientation(cloud, 'invalid'), false)
   assert.ok(before.equals(cloud.quaternion))
+})
+test('display axes use X right, Y forward, and Z up', () => {
+  assert.deepEqual(getDisplayAxisDirection('X').toArray(), [1, 0, 0])
+  assert.deepEqual(getDisplayAxisDirection('Y').toArray(), [0, 0, -1])
+  assert.deepEqual(getDisplayAxisDirection('Z').toArray(), [0, 1, 0])
 })
 test('panel remains finite, upright and tilt-limited even directly above/below viewer', () => {
   const position = new THREE.Vector3(), quaternion = new THREE.Quaternion()
