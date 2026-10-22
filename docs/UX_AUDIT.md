@@ -3,7 +3,8 @@
 Reviewed October 21, 2026. Scope: desktop, touch/mobile, graph input, orbital
 selection, measurement accumulation, immersive menu layout/state, and all lesson
 and guided-activity content. This records software/browser checks; it does not
-claim physical headset acceptance.
+claim physical headset acceptance. The initial feature-pass record follows; the
+follow-up section at the end records the later agreed refinements.
 
 ## Changes resulting from the review
 
@@ -81,3 +82,38 @@ menu reach/comfort with each hand, poke withdrawal across every family, selectio
 while moving, XR exit/re-entry, and frame times while scrubbing coverage near the
 ring event and during the final accelerated reveal. Automated geometry and menu
 checks do not establish hand-tracking quality or headset GPU performance.
+
+## Follow-up refinement: October 21, 2026
+
+This section supersedes the initial layout/axis/slider descriptions above.
+
+- Transposed the p/d graph: probability and measured fraction are horizontal;
+  enclosed volume is vertical. A steeper model curve now means more space is
+  needed for the next portion of probability. Updated lesson/activity copy,
+  labels, accessible names, and graph pointer mapping together. Sampling
+  discrepancies move measured points horizontally at the same enclosure volume.
+- Removed the separate web/mobile probability slider. The graph retains direct
+  horizontal selection, keyboard arrows/Home/End, Off, and the 5–90% active range.
+  Vertical cloud input and XR measurement gestures retain their existing mapping.
+- Compact web selectors use label-sized widths and at least 44px touch targets.
+  Desktop actions remain below the viewer. On mobile the existing controls move
+  above it; the viewer and graph have only a 4px gap between them. No controls or
+  hints occupy that gap. Inactive control and viewer slots reserve their heights.
+- Corrected a grid sizing issue exposed by resizing from 320px to 390px: the
+  canvas now fills the available viewer width rather than keeping its former
+  narrower width. The gap measurement uses the actual canvas edge.
+- Renamed the s web switch and XR action to **90% Region**, with matching lesson
+  and guided-activity text. No XR gesture, hand priority, or pitch changes.
+- Browser checks at 1280×900, 390×844, and 320×740 confirmed desktop placement,
+  mobile control ordering, no horizontal overflow, and compact 44px-high choices.
+  At 390px the 343px canvas matches the viewer width and ends 4px before the graph.
+  At 320px all five d choices fit one row; moving between d, p, and s kept document
+  height fixed at 11,211px. Verified Off → 5% keyboard selection, direct graph
+  pointer selection, and the visible 90% Region label.
+- Added regression checks for transposed model/measurement coordinates and
+  probability input, plus responsive node movement, focus retention, and XR
+  deferral. The full test suite and production build pass; the known large-bundle
+  warning remains. Physical headset acceptance is still outstanding.
+
+See [open decisions](OPEN_DECISIONS.md) for pitch, XR arbitration, scale policy,
+reference plots, and later usability work.

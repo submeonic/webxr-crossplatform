@@ -45,13 +45,14 @@
         </p>
         <p>
           Drag sideways to rotate. Drag vertically to scan the s shell or adjust
-          p/d coverage from Off to 5–90%; you can also use the probability slider.
-          Drag a graph horizontally, or focus it and use the arrow keys. Wheel or
+          p/d coverage from Off to 5–90%. Drag horizontally on a graph to select
+          the radius or probability directly; arrow keys work when it is focused.
+          Wheel or
           two-finger pinch zooms. In WebXR, pinch and move sideways to rotate or
           vertically to adjust the same measurement. Open either palm, choose an
           s, p, or d tab, then poke a choice with the opposite index finger.
           Each new family starts with its first orbital. Resample and Exit XR
-          stay available; only s orbitals have a Region switch.
+          stay available; only s orbitals have a 90% Region switch.
         </p>
         <p>
           Every newly selected orbital reveals its outcomes over about three
@@ -93,6 +94,8 @@
               only a few sample points remain visible.
             </p>
 
+            <div class="mobile-controls-slot" data-controls-slot="1s-orbital"></div>
+
             <div
               class="mobile-viewer-slot"
               data-viewer-slot="1s-orbital"
@@ -125,10 +128,12 @@
               through the zero at the node, and into the larger outer peak.
               Compare the green 2s graph with the faint yellow 1s reference to
               explain how excitation changes both the size and internal
-              structure of the probability distribution. Turn on Region to see
+              structure of the probability distribution. Turn on 90% Region to see
               one nucleus-centered sphere containing 90% probability. It surrounds
               both clusters without removing the radial node inside it.
             </p>
+
+            <div class="mobile-controls-slot" data-controls-slot="2s-orbital"></div>
 
             <div
               class="mobile-viewer-slot"
@@ -163,9 +168,9 @@
               Now grow the probability enclosure. Both lobes together contain
               the displayed percentage. Dense space enters first; capturing the
               next portion of probability eventually requires much more volume.
-              The graph plots enclosed probability against volume. A steeper
-              curve means that added space captures more probability; a shallower
-              curve means it captures less. Its 50% and 90% guides let you read
+              The graph plots enclosed volume vertically against probability
+              horizontally. A steeper curve means that capturing the next portion
+              of probability requires more space. Its 50% and 90% guides let you read
               how much space a chosen probability needs. Changing orientation
               rotates the lobes but leaves this relationship unchanged.
             </p>
@@ -176,6 +181,8 @@
               independent outcomes accumulate.
             </p>
 
+            <div class="mobile-controls-slot" data-controls-slot="2p-orbital"></div>
+
             <div
               class="mobile-viewer-slot"
               data-viewer-slot="2p-orbital"
@@ -184,7 +191,7 @@
             <div
               id="2p-orbital-desktop-graph"
               class="desktop-radial-graph"
-              aria-label="2p probability and measured fraction versus enclosed volume"
+              aria-label="2p enclosed volume versus probability and measured fraction"
             ></div>
                         
           </section>
@@ -224,9 +231,11 @@
               highlighted measurement count changes. Follow the relationship
               between space, probability, and outcomes.
             </p>
+            <div class="mobile-controls-slot" data-controls-slot="3d-orbital"></div>
+
             <div class="mobile-viewer-slot" data-viewer-slot="3d-orbital"></div>
             <div id="3d-orbital-desktop-graph" class="desktop-radial-graph"
-                 aria-label="3d probability and measured fraction versus enclosed volume"></div>
+                 aria-label="3d enclosed volume versus probability and measured fraction"></div>
           </section>
         </main>
 
@@ -244,16 +253,19 @@
             </div>
 
             <div id="xr-canvas-container"></div>
-            <div id="xr-button-container"></div>
+            <div class="viewer-controls" data-viewer-controls>
+              <div id="xr-button-container"></div>
 
-            <p class="viewer-hint">
-              <span class="viewer-hint__desktop">
-                Sideways: rotate · vertical: scan radius · scroll: zoom · XR: pinch, then move
-              </span>
-              <span class="viewer-hint__mobile">
-                Sideways: rotate · vertical: scan radius · two fingers: zoom
-              </span>
-            </p>
+              <p class="viewer-hint">
+                <span class="viewer-hint__desktop">
+                  Sideways: rotate · vertical: scan radius · scroll: zoom · XR: pinch, then move
+                </span>
+                <span class="viewer-hint__mobile">
+                  Sideways: rotate · vertical: scan radius · two fingers: zoom
+                </span>
+              </p>
+              <div data-orbital-controls-host></div>
+            </div>
           </div>
         </aside>
       </div>

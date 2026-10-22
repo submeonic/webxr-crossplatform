@@ -4,8 +4,7 @@ import {
   drawRadialGraph,
   graphXToRadiusA0,
 } from './drawRadialGraph.js'
-import { graphXToVolume } from '../../shared/ui/drawProbabilityGraph.js'
-import { probabilityAtVolume } from '../../shared/data/probabilityCoverage.js'
+import { graphXToProbability } from '../../shared/ui/drawProbabilityGraph.js'
 
 export function createDesktopRadialGraph({
   containerId,
@@ -88,7 +87,7 @@ export function createDesktopRadialGraph({
     const coverage=graphConfig?.kind==='coverage'
     canvas.setAttribute('aria-valuenow',String(coverage ? latestState.probability??0 : latestState.outerRadiusA0))
     canvas.setAttribute('aria-valuetext',coverage
-      ? `${((latestState.probability??0)*100).toFixed(1)} percent probability; ${latestState.highlightedCount??0} of ${latestState.revealedCount??0} outcomes inside`
+      ? `${latestState.probability ? `${(latestState.probability*100).toFixed(1)} percent probability` : 'Enclosure off'}; ${latestState.highlightedCount??0} of ${latestState.revealedCount??0} outcomes inside`
       : `${latestState.outerRadiusA0.toFixed(2)} Bohr radii`)
 
     draw()
@@ -128,7 +127,7 @@ export function createDesktopRadialGraph({
       normalizedX * RADIAL_GRAPH_LOGICAL_WIDTH
 
     if(graphConfig?.kind==='coverage') {
-      return probabilityAtVolume(latestState.coverageType??'2p',graphXToVolume(logicalX,latestState.coverageType??'2p'))
+      return graphXToProbability(logicalX)
     }
 
     return clamp(

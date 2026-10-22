@@ -344,7 +344,8 @@ body {
 }
 
 
-.mobile-viewer-slot {
+.mobile-viewer-slot,
+.mobile-controls-slot {
   display: none;
   width: 100%;
   min-width: 0;
@@ -352,6 +353,11 @@ body {
 
 .viewer-hint__mobile {
   display: none;
+}
+
+.viewer-controls {
+  display: grid;
+  gap: 8px;
 }
 
 /* Sticky WebXR viewer */
@@ -655,33 +661,39 @@ Responsive behavior:
     align-self: stretch;
   }
 
-  /* Reserve the compact viewer footprint in every section so moving the shared
-     viewer never changes page geometry. Every orbital now has a control row. */
-  .mobile-viewer-slot {
-    --mobile-viewer-chrome-height: 64px;
-    --mobile-viewer-xr-height: 0px;
-    --mobile-viewer-selector-height: 56px;
-
+  /* Reserve both movable bundles in every section, including inactive ones.
+     Controls lead the scene; the graph follows it without intervening chrome. */
+  .mobile-controls-slot {
+    --controls-height: 96px;
+    --xr-controls-height: 0px;
     display: block;
     position: relative;
-    margin: 2rem 0;
-    padding-bottom: calc(
-      var(--mobile-viewer-chrome-height) +
-      var(--mobile-viewer-xr-height) +
-      var(--mobile-viewer-selector-height)
-    );
+    margin: 1rem 0 6px;
+    min-height: calc(var(--controls-height) + var(--xr-controls-height));
   }
+  .mobile-controls-slot[data-controls-slot='3d-orbital'] { --controls-height: 146px; }
+  .xr-available .mobile-controls-slot { --xr-controls-height: 60px; }
+  .mobile-controls-slot .viewer-controls { position: absolute; inset: 0; align-content: end; }
+  .mobile-controls-slot .orbital-selector { padding: 0; gap: 6px; }
+  .mobile-controls-slot .orbital-control-group { gap: 4px; }
+  .mobile-controls-slot .orbital-selector button { font-size: 13px; padding-inline: 6px; }
+  .mobile-controls-slot .orbital-region-switch { gap: 6px; }
+  .mobile-controls-slot .orbital-controls--d { flex-direction: column; align-items: center; }
+  .lesson-section .viewer-hint { margin: 0; font-size: 14px; line-height: 20px; }
 
-  .xr-available .mobile-viewer-slot {
-    --mobile-viewer-xr-height: 60px;
+  .mobile-viewer-slot {
+    --viewer-label-height: 26px;
+    display: block;
+    position: relative;
+    margin: 0;
+    padding-bottom: var(--viewer-label-height);
   }
-
   .mobile-viewer-slot::before {
     content: '';
     display: block;
     aspect-ratio: 4 / 3;
+    max-height: 36svh;
   }
-
   .mobile-viewer-slot:empty::after {
     content: 'Scroll this section into view to explore in 3D';
     position: absolute;
@@ -694,7 +706,6 @@ Responsive behavior:
     font: 16px / 24px var(--font-body);
     text-align: center;
   }
-
   .mobile-viewer-slot .simulation-sticky {
     position: absolute;
     inset: 0;
@@ -702,65 +713,25 @@ Responsive behavior:
     height: 100%;
     min-height: 0;
     display: grid;
-    grid-template-rows: none;
-    gap: 12px;
+    grid-template-columns: minmax(0, 1fr);
+    justify-content: stretch;
+    gap: 6px;
     align-content: start;
   }
-
-  .mobile-viewer-slot .orbital-selector {
-    gap: 0.35rem;
-    padding: 0;
-  }
-  .mobile-viewer-slot .orbital-control-group {
-    gap: 0.25rem;
-  }
-  .mobile-viewer-slot .orbital-control-group--orientation {
-    flex: 1.15 1 0;
-  }
-  .mobile-viewer-slot .orbital-control-group--view {
-    flex: 1 1 0;
-    padding-left: 0.35rem;
-  }
-  .mobile-viewer-slot .orbital-selector button {
-    padding-inline: 0.2rem;
-    font-size: clamp(10px, 2.5vw, 14px);
-  }
-  .mobile-viewer-slot .orbital-region-switch {
-    gap: 0.25rem;
-  }
-  .mobile-viewer-slot .orbital-region-switch::before {
-    width: 0.9rem;
-    height: 0.65rem;
-    background:
-      radial-gradient(circle at 28% 50%, currentColor 0 0.2rem, transparent 0.22rem),
-      color-mix(in srgb, currentColor 18%, transparent);
-  }
-  .mobile-viewer-slot .orbital-region-switch[aria-checked="true"]::before {
-    background:
-      radial-gradient(circle at 72% 50%, currentColor 0 0.2rem, transparent 0.22rem),
-      color-mix(in srgb, currentColor 28%, transparent);
-  }
-  .mobile-viewer-slot .orbital-selector[hidden] { display: none; }
-  .lesson-section .viewer-hint { margin: 0; font-size: 14px; line-height: 20px; }
-
   #xr-canvas-container {
     width: 100%;
     height: auto;
     min-height: 0;
     aspect-ratio: 4 / 3;
+    max-height: 36svh;
   }
-
-  #xr-button-container {
-    min-height: 48px;
-    padding-top: 0.25rem;
-  }
-
+  #xr-button-container { min-height: 48px; padding-top: 4px; }
   .desktop-radial-graph {
     width: 100%;
-    max-width: none;
+    max-width: max(260px, 52.5svh);
     height: auto;
-    aspect-ratio: 4 / 3;
-    margin-top: 1.5rem;
+    aspect-ratio: 5 / 4;
+    margin: 4px auto 0;
   }
 
   .viewer-label {
@@ -778,9 +749,8 @@ Responsive behavior:
 }
 
 @media (max-width: 450px) {
-  .mobile-viewer-slot {
-    --mobile-viewer-chrome-height: 108px;
-  }
+  .mobile-viewer-slot { --viewer-label-height: 46px; }
+  .mobile-viewer-slot .viewer-label { font-size: 12px; line-height: 18px; }
 
   .title-row h1 {
     font-size: 30px;
@@ -868,31 +838,32 @@ Responsive behavior:
 .orbital-selector {
   display: flex;
   justify-content: center;
-  gap: 0.75rem;
-  padding: 0.8rem;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 4px;
 }
 .orbital-selector[hidden] { display: none; }
 .orbital-control-group {
-  display: grid;
-  grid-auto-flow: column;
-  grid-auto-columns: minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 0.4rem;
   min-width: 0;
 }
-.orbital-control-group--orientation { flex: 3 1 0; }
+.orbital-control-group--orientation { flex: 0 1 auto; }
 .orbital-control-group--view {
-  flex: 2 1 0;
-  max-width: 22rem;
+  flex: 0 0 auto;
 }
 .orbital-controls--with-orientation .orbital-control-group--view {
-  padding-left: 0.75rem;
-  border-left: 1px solid var(--line);
+  padding-left: 0;
+  border-left: 0;
 }
 .orbital-selector button {
-  min-width: 0;
+  flex: 0 0 auto;
+  min-width: 44px;
   min-height: 44px;
-  padding-inline: clamp(0.35rem, 1.5vw, 1rem);
-  font-size: clamp(12px, 1.25vw, 16px);
+  padding-inline: 8px;
+  font-size: 16px;
   white-space: nowrap;
   cursor: pointer;
 }
@@ -932,60 +903,11 @@ Responsive behavior:
 }
 .orbital-selector button:focus-visible { outline: 3px solid #80b9ff; outline-offset: 3px; }
 
-/* Coverage is one shared value across the slider, graph and vertical gesture.
-   Choices get their own row; long d labels never compete with Resample. */
-.orbital-controls--with-orientation {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  grid-template-areas: 'choices choices' 'coverage actions';
-  gap: 8px 12px;
-}
-.orbital-controls--with-orientation .orbital-control-group--orientation {
-  grid-area: choices;
-  grid-auto-flow: row;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-}
-.orbital-controls--with-orientation .orbital-control-group--view {
-  grid-area: actions;
-  padding: 0;
-  border: 0;
-  align-self: end;
-}
-.orbital-coverage-control {
-  grid-area: coverage;
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  align-items: center;
-  gap: 0 8px;
-  min-width: 0;
-  font: 14px/20px var(--font-body);
-}
-.orbital-coverage-control input {
-  grid-column: 1 / -1;
-  grid-row: 2;
-  width: 100%;
-  margin: 0;
-  min-height: 28px;
-  accent-color: var(--brand);
-  touch-action: pan-y;
-}
-.orbital-coverage-control output { color: var(--brand); font-variant-numeric: tabular-nums; }
+/* Graphs provide the web measurement control; horizontal touch input leaves
+   vertical page scrolling available. */
 .desktop-radial-graph canvas { touch-action: pan-y; }
-.desktop-radial-graph canvas:focus-visible,
-.orbital-coverage-control input:focus-visible { outline: 3px solid #80b9ff; outline-offset: 3px; }
+.desktop-radial-graph canvas:focus-visible { outline: 3px solid #80b9ff; outline-offset: 3px; }
 @media (max-width: 760px) {
-  /* Reserve the same height with or without the viewer, including narrow phones. */
-  .mobile-viewer-slot[data-viewer-slot='2p-orbital'] { --mobile-viewer-selector-height: 116px; }
-  .mobile-viewer-slot[data-viewer-slot='3d-orbital'] { --mobile-viewer-selector-height: 164px; }
-  .mobile-viewer-slot .orbital-controls--with-orientation {
-    display: grid;
-    gap: 6px 8px;
-  }
-  .mobile-viewer-slot .orbital-controls--with-orientation .orbital-control-group--view { padding: 0; border: 0; }
-  .mobile-viewer-slot .orbital-control-group--orientation { gap: 4px; }
-  .mobile-viewer-slot .orbital-controls--with-orientation button { font-size: 13px; padding-inline: 4px; }
-  .mobile-viewer-slot .orbital-coverage-control { font-size: 12px; }
-  /* A floating chapter link must not cover controls when focus scrolls them up. */
   .backButton { position: absolute; }
 }
 @media (prefers-reduced-motion: reduce) {

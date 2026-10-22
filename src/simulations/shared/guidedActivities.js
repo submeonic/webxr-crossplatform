@@ -5,7 +5,7 @@ export const guidedActivities = {
       'Predict the view after rotation. Turn the cloud to test its spherical symmetry.',
       'Scan outward. Find the shell containing the most highlighted outcomes.',
       'Why is the peak near 1 a₀, not the center? Consider each shell’s size.',
-      'Turn on Region: its single sphere encloses 90% probability, not a hard edge. Resample: does the shell count repeat exactly?',
+      'Turn on 90% Region: its single sphere encloses 90% probability, not a hard edge. Resample: does the shell count repeat exactly?',
     ],
   },
   '2s-orbital': {
@@ -14,14 +14,14 @@ export const guidedActivities = {
       'Scan outward. Find the inner cluster, the zero near 2 a₀, and the broad outer region.',
       'Move the measuring shell away, then rotate. Does the empty gap surround the nucleus?',
       'Compare 2s with the faint 1s reference. Which extends farther?',
-      'Turn on Region. Its single 90% sphere surrounds both clusters; the node remains inside. Resample and watch independent outcomes accumulate.',
+      'Turn on 90% Region. Its single 90% sphere surrounds both clusters; the node remains inside. Resample and watch independent outcomes accumulate.',
     ],
   },
   '2p-orbital': {
     title: 'How much space captures probability?',
     steps: [
       'Switch among 2px, 2py, and 2pz. Which axis contains each pair of lobes?',
-      'Drag vertically to shrink and grow the enclosure. Its percentage is shared by both lobes; highlighted outcomes are inside.',
+      'Drag across the graph or vertically on the cloud to shrink and grow the enclosure. Its percentage is shared by both lobes; highlighted outcomes are inside.',
       'Compare the extra volume needed from 20% to 30% and from 80% to 90%. What does the curve’s changing slope mean?',
       'Resample. Watch measured fractions approach the steady model. Why do repeated sample counts differ?',
     ],
@@ -31,7 +31,7 @@ export const guidedActivities = {
     steps: [
       'Select the four clover-shaped orbitals. Rotate their axes: which lobes lie along axes, and which lie between them?',
       'Select 3dz². Lower coverage below 30%, then increase it slowly. The equatorial ring begins near 29.8%; find the graph marker.',
-      'From 80% to 90%, how much volume must the enclosure add? Relate the shallower curve to less-dense space.',
+      'From 80% to 90%, how much volume must the enclosure add? Relate the steeper curve to less-dense space.',
       'Resample at a fixed coverage. The shape and model stay steady while highlighted counts fluctuate. Each dot is a separate outcome.',
     ],
   },

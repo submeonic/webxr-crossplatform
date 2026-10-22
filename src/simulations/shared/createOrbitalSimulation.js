@@ -312,7 +312,7 @@ export function createOrbitalSimulation(app, config) {
     const viewModeButton = document.createElement('button')
     viewModeButton.type = 'button'
     viewModeButton.className = 'orbital-region-switch'
-    viewModeButton.textContent = 'REGION'
+    viewModeButton.textContent = '90% Region'
     viewModeButton.setAttribute('role', 'switch')
     viewModeButton.addEventListener('click', toggleViewMode)
     viewModeButton.hidden=usesCoverage
@@ -330,34 +330,14 @@ export function createOrbitalSimulation(app, config) {
 
     viewActionsGroup.append(viewModeButton, resampleButton)
     element.append(viewActionsGroup)
-    let coverageInput=null,coverageOutput=null
-    if(usesCoverage) {
-      const row=document.createElement('label')
-      row.className='orbital-coverage-control'
-      const text=document.createElement('span');text.textContent='Enclosed probability'
-      coverageInput=document.createElement('input')
-      coverageInput.type='range';coverageInput.min='0';coverageInput.max='90';coverageInput.step='0.1';coverageInput.value='90'
-      coverageInput.setAttribute('aria-label','Enclosed probability; Off or 5 to 90 percent')
-      coverageOutput=document.createElement('output')
-      coverageOutput.textContent='90%'
-      coverageInput.addEventListener('input',()=>{
-        let next=Number(coverageInput.value)/100
-        if(next>0&&next<0.05)next=next>probability ? 0.05 : 0
-        setEnclosedProbability(next)
-      })
-      row.append(text,coverageInput,coverageOutput);element.append(row)
-    }
-    document.querySelector('[data-simulation-viewer]')?.append(element)
+    const host = document.querySelector('[data-orbital-controls-host]')
+      ?? document.querySelector('[data-simulation-viewer]')
+    host?.append(element)
 
-    return { element, viewActionsGroup, viewModeButton, resampleButton,coverageInput,coverageOutput }
+    return { element, viewActionsGroup, viewModeButton, resampleButton }
   }
 
   function updateWebControls() {
-    if(usesCoverage) {
-      webControls.coverageInput.value=String(probability*100)
-      webControls.coverageOutput.textContent=probability ? `${(probability*100).toFixed(1)}%` : 'Off'
-      webControls.coverageInput.setAttribute('aria-valuetext',probability ? `${(probability*100).toFixed(1)} percent` : 'Enclosure off')
-    }
     const isRegion = viewMode === 'region'
     webControls.viewModeButton.setAttribute(
       'aria-checked',
@@ -605,7 +585,7 @@ export function createOrbitalSimulation(app, config) {
         ...(!usesCoverage ? [
         {
           id: 'orbital-view-mode',
-          label: 'REGION',
+          label: '90% REGION',
           kind: 'action',
           group: 'view',
           active: viewMode === 'region',

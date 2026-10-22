@@ -143,6 +143,8 @@ const viewerPlacementController =
   new ResponsiveViewerPlacementController({
     viewerElement,
     desktopSlot: desktopViewerSlot,
+    controlsElement: document.querySelector('[data-viewer-controls]'),
+    desktopControlsSlot: viewerElement,
     mobileMediaQuery: '(max-width: 760px)',
     isXRPresenting: () => app.renderer.xr.isPresenting,
     onPlacementChanged: () => {

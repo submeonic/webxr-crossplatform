@@ -10,10 +10,10 @@ measurement outcome, not part of an electron trajectory.
 | Family | Available states | Vertical interaction | Graph |
 | --- | --- | --- | --- |
 | s | 1s, 2s | Scan a constant-thickness radial shell | Analytic radial probability density, with 1s reference for 2s |
-| p | 2px, 2py, 2pz | Adjust probability coverage | Enclosed probability and observed measurement fraction versus volume |
-| d | 3dxy, 3dxz, 3dyz, 3dx²−y², 3dz² | Adjust probability coverage | Enclosed probability and observed measurement fraction versus volume |
+| p | 2px, 2py, 2pz | Adjust probability coverage | Enclosed volume versus probability and observed measurement fraction |
+| d | 3dxy, 3dxz, 3dyz, 3dx²−y², 3dz² | Adjust probability coverage | Enclosed volume versus probability and observed measurement fraction |
 
-The s-only Region switch displays a single nucleus-centered sphere containing
+The s-only 90% Region switch displays a single nucleus-centered sphere containing
 90% probability. For 2s its radius is approximately 9.125385 a₀; the spherical
 node at 2 a₀ remains inside it. This sphere is distinct from the moving thin
 measurement shell and is not a highest-density set for 2s.
@@ -21,7 +21,8 @@ measurement shell and is not a highest-density set for 2s.
 For p/d, the enclosure contains the highest-density space first. Coverage is Off
 or 5–90%, initially 90%. The selected percentage applies to all components
 combined. The graph's 50% and 90% guides connect probability to volume in a₀³.
-Its changing slope expresses the probability captured by additional space.
+Probability is horizontal and volume is vertical. A steeper curve means that
+capturing another portion of probability requires more space.
 Theoretical curves and enclosure geometry are independent of resampling.
 Yellow graph dots show observed fractions among outcomes already plotted;
 no observed fraction is displayed before the first outcome. Differences from the
@@ -104,20 +105,19 @@ Independent seeded statistical tests verify coverage, angular moments, and tails
 | --- | --- |
 | Horizontal mouse/touch drag, or sideways XR pinch-drag | Rotate the presentation about displayed Z |
 | Vertical mouse/touch drag, or vertical XR pinch-drag | Scan s radius or adjust p/d coverage |
-| Horizontal drag on graph | Select radius or the coverage corresponding to that volume |
+| Horizontal drag on graph | Select s radius or p/d probability directly |
 | Focus graph, then arrows / Home / End | Adjust selection / minimum / maximum |
-| p/d probability slider | Adjust the same shared selection |
 | Wheel, two-finger stretch, W/S | Dolly desktop camera |
 | A/D | Orbit desktop camera |
 | Resample | Generate and reveal a new outcome set |
-| Region, available only for s | Show/hide the fixed 90% sphere |
+| 90% Region, available only for s | Show/hide the fixed 90% sphere |
 
 Camera keyboard handling ignores focused form controls and interactive graphs.
 Web drags lock to the dominant axis after 8px. Multi-pointer gestures must release
 fully before a new one-pointer gesture. Blur and tracking loss cancel input.
 
 The XR menu has persistent s/p/d tabs, two rows of orbital choices, an s-only
-Region action, and a fixed Resample / Exit XR footer. Selecting another family
+90% Region action, and a fixed Resample / Exit XR footer. Selecting another family
 activates its first state: 1s, 2px, or 3dxy. Tabs and orbital choices retain the
 4.6 × 3.1cm poke targets; five d choices never squeeze into one row. Page changes
 are deferred until the pressing finger withdraws, including tracking-loss and
@@ -184,15 +184,24 @@ when visible; reveal graph updates are limited to 15Hz, with an exact final upda
 
 ## Responsive layout and acceptance
 
-Desktop uses a sticky shared viewer; at 760px and below the same node moves into
-the active section. Every inactive mobile slot reserves its full future height.
-s controls reserve 56px, p 116px, and d 164px, plus existing label/hint and XR-button
-allowances. Never condition these reservations on whether the viewer is present:
-that makes the document jump during navigation.
+Desktop keeps compact simulation choices and actions below the sticky shared
+viewer. At 760px and below, the existing controls move above the active section’s
+viewer; the quantitative graph follows the viewer with a 4px gap. There is no
+separate web probability slider: graph input, keyboard adjustment, and vertical
+cloud input share the measurement value. Choice widths follow their labels;
+touch targets remain at least 44px high.
+
+Every inactive mobile scene and controls slot reserves its full future height.
+s/p control bundles reserve 96px and d 146px, plus 60px when XR is available.
+Viewer slots reserve the canvas and its label separately. Never condition these
+reservations on whether the viewer is present: that makes the document jump
+during navigation. The placement controller moves existing DOM nodes, preserves
+focus without scrolling, and defers both moves while XR is presenting.
 
 Node tests cover scientific probabilities, geometry and topology, reveal timing,
 family-menu layout and poke locking, lifecycle/disposal, transforms, shell/coverage
 state, input priority, idle behavior, and XR eye-camera integrity. See
-`docs/UX_AUDIT.md` for the final interface/content review. Physical Quest and Vision
+`docs/UX_AUDIT.md` for the interface/content review and `docs/OPEN_DECISIONS.md`
+for deferred design questions. Physical Quest and Vision
 Pro checks remain necessary for hand tracking, stereo transparency, comfortable
 reach, text readability, and GPU/frame-time performance.

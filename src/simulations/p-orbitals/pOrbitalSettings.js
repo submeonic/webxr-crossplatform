@@ -18,7 +18,7 @@ export function createPOrbitalSettings() {
     axesLengthMeters: 2.2,
     initialYawRadians: 0,
     desktopGraphContainerId: '2p-orbital-desktop-graph',
-    desktopGraphAriaLabel: '2p enclosed probability and measured fraction versus volume; drag horizontally or use arrow keys',
+    desktopGraphAriaLabel: '2p enclosed volume versus probability and measured fraction; drag horizontally or use arrow keys',
     graphConfig: {kind:'coverage'},
   }
 }

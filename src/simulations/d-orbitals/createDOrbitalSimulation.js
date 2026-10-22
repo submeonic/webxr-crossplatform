@@ -16,7 +16,7 @@ export function createDOrbitalSimulation(app) {
     pointColor:0xeadfad,pointOpacity:0.16,highlightColor:0xfff7ae,highlightOpacity:0.98,shellColor:0xfff7ae,
     regionColor:0x80b9ff,regionRimColor:0xfff7ae,
     desktopGraphContainerId:'3d-orbital-desktop-graph',
-    desktopGraphAriaLabel:'3d enclosed probability and measured fraction versus volume; drag horizontally or use arrow keys',
+    desktopGraphAriaLabel:'3d enclosed volume versus probability and measured fraction; drag horizontally or use arrow keys',
     graphConfig:{kind:'coverage'},
   }
   const simulation=createOrbitalSimulation(app,settings)

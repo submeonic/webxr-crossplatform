@@ -2,6 +2,8 @@ export class ResponsiveViewerPlacementController {
   constructor(options = {}) {
     this.viewerElement = options.viewerElement
     this.desktopSlot = options.desktopSlot
+    this.controlsElement = options.controlsElement ?? null
+    this.desktopControlsSlot = options.desktopControlsSlot ?? this.viewerElement
 
     this.mobileSlotSelector =
       options.mobileSlotSelector ?? '[data-viewer-slot]'
@@ -100,6 +102,11 @@ export class ResponsiveViewerPlacementController {
     return null
   }
 
+  getMobileControlsSlot(simulationName) {
+    return Array.from(document.querySelectorAll('[data-controls-slot]'))
+      .find(slot => slot.dataset.controlsSlot === simulationName) ?? null
+  }
+
   getTargetPlacement() {
     const useMobilePlacement =
       this.mediaQueryList.matches &&
@@ -144,11 +151,24 @@ export class ResponsiveViewerPlacementController {
 
     this.placementPending = false
 
-    if (this.viewerElement.parentElement === targetSlot) {
-      return false
+    const controlsSlot = mode === 'mobile'
+      ? this.getMobileControlsSlot(this.activeSimulationName) ?? this.desktopControlsSlot
+      : this.desktopControlsSlot
+    const focused = document.activeElement
+    const preserveFocus = focused && (
+      this.controlsElement?.contains(focused) || this.viewerElement.contains(focused)
+    )
+    let moved = false
+    if (this.viewerElement.parentElement !== targetSlot) {
+      targetSlot.appendChild(this.viewerElement)
+      moved = true
     }
-
-    targetSlot.appendChild(this.viewerElement)
+    if (this.controlsElement && this.controlsElement.parentElement !== controlsSlot) {
+      controlsSlot.appendChild(this.controlsElement)
+      moved = true
+    }
+    if (!moved) return false
+    if (preserveFocus) focused.focus({ preventScroll: true })
 
     requestAnimationFrame(() => {
       this.onPlacementChanged?.({
