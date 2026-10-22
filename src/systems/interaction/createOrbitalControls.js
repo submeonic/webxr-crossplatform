@@ -14,15 +14,16 @@ export const DEFAULT_ORBITAL_CONTROLS = Object.freeze({
 
 /** Binding layer: reusable actions with independent XR and web input adapters. */
 export function createOrbitalControls({ app, target, getRadius, setRadius,
-  minRadius, maxRadius, settings = {} }) {
+  minRadius, maxRadius, getValue = getRadius, setValue = setRadius,
+  minimum = minRadius, maximum = maxRadius, settings = {} }) {
   const tuning = { ...DEFAULT_ORBITAL_CONTROLS, ...settings }
-  let yawStart = 0, radiusStart = 0
-  const range = maxRadius - minRadius
+  let yawStart = 0, selectionStart = 0
+  const range = maximum - minimum
   const beginYaw = () => { yawStart = target.rotation.y }
-  const beginRadius = () => { radiusStart = getRadius() }
-  const changeRadius = value => {
-    const radius = setRadius(value)
-    return { atMinimum: radius <= minRadius, atMaximum: radius >= maxRadius }
+  const beginSelection = () => { selectionStart = getValue() }
+  const changeSelection = value => {
+    const selected = setValue(value)
+    return { atMinimum: selected <= minimum, atMaximum: selected >= maximum }
   }
   const xr = new AxisDragControlSystem({
     camera: app.camera,
@@ -37,8 +38,8 @@ export function createOrbitalControls({ app, target, getRadius, setRadius,
       onChange: meters => { target.rotation.y = yawStart + meters * tuning.xrYawRadiansPerMeter },
     },
     vertical: {
-      onStart: beginRadius,
-      onChange: meters => changeRadius(radiusStart + meters / tuning.xrShellFullRangeMeters * range),
+      onStart: beginSelection,
+      onChange: meters => changeSelection(selectionStart + meters / tuning.xrShellFullRangeMeters * range),
     },
   })
   return {
@@ -53,9 +54,9 @@ export function createOrbitalControls({ app, target, getRadius, setRadius,
         },
       },
       verticalDrag: {
-        onStart: beginRadius,
-        onChange: ({ totalDeltaY }) => changeRadius(
-          radiusStart - totalDeltaY / tuning.webShellFullRangePixels * range),
+        onStart: beginSelection,
+        onChange: ({ totalDeltaY }) => changeSelection(
+          selectionStart - totalDeltaY / tuning.webShellFullRangePixels * range),
       },
     },
   }

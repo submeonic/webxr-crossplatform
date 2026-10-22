@@ -4,6 +4,8 @@ import {
   drawRadialGraph,
   graphXToRadiusA0,
 } from './drawRadialGraph.js'
+import { graphXToVolume } from '../../shared/ui/drawProbabilityGraph.js'
+import { probabilityAtVolume } from '../../shared/data/probabilityCoverage.js'
 
 export function createDesktopRadialGraph({
   containerId,
@@ -29,6 +31,10 @@ export function createDesktopRadialGraph({
 
   canvas.setAttribute('role', 'img')
   canvas.setAttribute('aria-label', ariaLabel)
+  canvas.setAttribute('tabindex', '0')
+  canvas.setAttribute('role', 'slider')
+  canvas.setAttribute('aria-valuemin', String(minRadiusA0))
+  canvas.setAttribute('aria-valuemax', String(maxRadiusA0))
 
   container.innerHTML = ''
   container.appendChild(canvas)
@@ -79,6 +85,11 @@ export function createDesktopRadialGraph({
       ...latestState,
       ...state,
     }
+    const coverage=graphConfig?.kind==='coverage'
+    canvas.setAttribute('aria-valuenow',String(coverage ? latestState.probability??0 : latestState.outerRadiusA0))
+    canvas.setAttribute('aria-valuetext',coverage
+      ? `${((latestState.probability??0)*100).toFixed(1)} percent probability; ${latestState.highlightedCount??0} of ${latestState.revealedCount??0} outcomes inside`
+      : `${latestState.outerRadiusA0.toFixed(2)} Bohr radii`)
 
     draw()
   }
@@ -116,6 +127,10 @@ export function createDesktopRadialGraph({
     const logicalX =
       normalizedX * RADIAL_GRAPH_LOGICAL_WIDTH
 
+    if(graphConfig?.kind==='coverage') {
+      return probabilityAtVolume(latestState.coverageType??'2p',graphXToVolume(logicalX,latestState.coverageType??'2p'))
+    }
+
     return clamp(
       graphXToRadiusA0(
         logicalX,
@@ -146,6 +161,18 @@ export function createDesktopRadialGraph({
     applyPointerRadius(event)
   }
 
+  function handleKeyDown(event) {
+    if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown','Home','End'].includes(event.key))return
+    event.preventDefault()
+    const coverage=graphConfig?.kind==='coverage'
+    const current=coverage ? latestState.probability??0 : latestState.outerRadiusA0
+    const step=coverage ? 0.01 : 0.1
+    let next=event.key==='Home' ? minRadiusA0 : event.key==='End' ? maxRadiusA0
+      : current+(['ArrowRight','ArrowUp'].includes(event.key)?step:-step)
+    if(coverage&&next>0&&next<0.05)next=next>current ? 0.05 : 0
+    onRadiusChange?.(clamp(next,minRadiusA0,maxRadiusA0))
+  }
+
   function handlePointerMove(event) {
     if (!isDragging) {
       return
@@ -166,6 +193,7 @@ export function createDesktopRadialGraph({
   canvas.addEventListener('pointermove', handlePointerMove)
   canvas.addEventListener('pointerup', handlePointerUp)
   canvas.addEventListener('pointercancel', handlePointerUp)
+  canvas.addEventListener('keydown', handleKeyDown)
 
   const resizeObserver = new ResizeObserver(resize)
   resizeObserver.observe(container)
@@ -180,6 +208,7 @@ export function createDesktopRadialGraph({
     canvas.removeEventListener('pointermove', handlePointerMove)
     canvas.removeEventListener('pointerup', handlePointerUp)
     canvas.removeEventListener('pointercancel', handlePointerUp)
+    canvas.removeEventListener('keydown', handleKeyDown)
 
     canvas.remove()
   }

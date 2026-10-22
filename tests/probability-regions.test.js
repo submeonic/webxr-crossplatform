@@ -19,13 +19,11 @@ test('analytic region definitions enclose 90 percent probability', () => {
   }
 })
 
-test('2s region preserves an inner component and a separate outer shell', () => {
+test('2s region is a single nucleus-centered sphere containing 90 percent', () => {
   const definition = getProbabilityRegionDefinition('2s')
-  const [innerOuter, shellInner, shellOuter] = definition.boundariesA0
-  assert.equal(definition.componentCount, 2)
-  assert.ok(innerOuter < 2)
-  assert.ok(shellInner > 2)
-  assert.ok(shellOuter > shellInner)
+  assert.equal(definition.componentCount, 1)
+  assert.equal(definition.boundariesA0.length, 1)
+  assert.ok(Math.abs(definition.boundariesA0[0]-9.12538546)<1e-7)
 })
 
 test('canonical 2p region geometry is finite, symmetric, and follows its isovalue', () => {

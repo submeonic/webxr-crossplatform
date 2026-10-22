@@ -199,14 +199,8 @@ export class PalmNavigationSystem {
       return a.label.localeCompare(b.label)
     })
 
-    this.menu.setItems([
-      ...this.simulationItems,
-      {
-        id: 'exit-xr',
-        label: 'EXIT XR',
-        kind: 'exit',
-      },
-    ])
+    this.family='s'
+    this.refreshContextActions()
   }
 
   setActiveSimulation(simulation) {
@@ -218,12 +212,43 @@ export class PalmNavigationSystem {
       : null
 
     this.activeSimulation = simulation
+    this.family=simulation?.family??this.family??'s'
     this.menu.setActiveSimulationId(simulationId)
     this.refreshContextActions()
   }
 
   refreshContextActions() {
-    this.menu.setContextActions(this.activeSimulation?.getMenuActions?.() ?? [])
+    const simulation=this.activeSimulation
+    const family=this.family??'s'
+    const available=this.simulationItems.filter(item=>(item.simulation.family??'s')===family)
+    const choices=family==='s' ? available.map(item=>({
+      id:item.id,label:item.label,kind:'action',group:'choices',active:item.simulation===simulation,
+      onSelect:()=>this.navigateTo(item.simulation,item.id),
+    })) : (simulation?.getMenuActions?.()??[]).filter(item=>item.group==='orientation').map(item=>({...item,group:'choices'}))
+    const context=(simulation?.getMenuActions?.()??[])
+      .filter(item=>item.id==='orbital-view-mode').map(item=>({...item,group:'context'}))
+    const resample={id:'resample-measurements',label:'RESAMPLE',kind:'action',group:'footer',
+      onSelect:()=>this.activeSimulation?.resampleMeasurements?.()}
+    this.menu.setHeading(`ORBITALS · ${simulation?.getSelectedOrbital?.() ? (simulation.orbitalChoices.find(o=>o.id===simulation.getSelectedOrbital())?.label??simulation.label) : simulation?.label??'1s'}`)
+    this.menu.setItems([
+      ...['s','p','d'].map(id=>({id:`family-${id}`,label:id,kind:'tab',active:family===id,onSelect:()=>this.selectFamily(id)})),
+      ...choices,...context,resample,{id:'exit-xr',label:'EXIT XR',kind:'exit',group:'footer'},
+    ])
+  }
+
+  navigateTo(simulation,id=simulation.id) {
+    this.onNavigate?.({id,simulation,source:'xr-palm-menu'})
+  }
+
+  selectFamily(family) {
+    if(family===this.family)return
+    const first=this.simulationItems.find(item=>(item.simulation.family??'s')===family)
+    if(!first)return
+    const choice=first.simulation.orbitalChoices?.[0]
+    if(choice)first.simulation.selectOrbital(choice.id)
+    this.family=family
+    this.navigateTo(first.simulation,first.id)
+    this.refreshContextActions()
   }
 
   isVisible() {
@@ -712,7 +737,7 @@ export class PalmNavigationSystem {
       return
     }
 
-    if (activatedItem.kind === 'action') {
+    if (activatedItem.kind === 'action'||activatedItem.kind==='tab') {
       activatedItem.onSelect?.()
       this.refreshContextActions()
       return

@@ -15,6 +15,7 @@ export function createOrbitalPointCloud({
   }
 
   let currentSamples = samples
+  let revealedCount = samples.count
   const capacity = samples.count
 
   const group = new THREE.Group()
@@ -76,6 +77,7 @@ export function createOrbitalPointCloud({
     }
 
     currentSamples = nextSamples
+    revealedCount = currentSamples.count
     baseMesh.count = currentSamples.count
 
     for (let i = 0; i < currentSamples.count; i++) {
@@ -91,20 +93,16 @@ export function createOrbitalPointCloud({
     }
 
     baseMesh.instanceMatrix.needsUpdate = true
+    baseMesh.computeBoundingSphere()
     highlightMesh.count = 0
     highlightMesh.visible = false
   }
 
-  function updateHighlight(innerRadiusA0, outerRadiusA0) {
+  function updateSelection(contains) {
     let highlightCount = 0
 
-    for (let i = 0; i < currentSamples.count; i++) {
-      const radiusA0 = currentSamples.radiiA0[i]
-
-      if (
-        radiusA0 >= innerRadiusA0 &&
-        radiusA0 < outerRadiusA0
-      ) {
+    for (let i = 0; i < revealedCount; i++) {
+      if (contains(i)) {
         const position = currentSamples.positions[i]
 
         TEMP_MATRIX.makeTranslation(
@@ -122,8 +120,18 @@ export function createOrbitalPointCloud({
     highlightMesh.count = highlightCount
     highlightMesh.visible = highlightCount > 0
     highlightMesh.instanceMatrix.needsUpdate = true
+    if (highlightCount) highlightMesh.computeBoundingSphere()
 
     return highlightCount
+  }
+
+  function updateHighlight(innerRadiusA0, outerRadiusA0) {
+    return updateSelection(i => currentSamples.radiiA0[i]>=innerRadiusA0 && currentSamples.radiiA0[i]<outerRadiusA0)
+  }
+
+  function setRevealedCount(count) {
+    revealedCount=Math.max(0,Math.min(currentSamples.count,Math.floor(count)))
+    baseMesh.count=revealedCount
   }
 
   setSamples(samples)
@@ -141,6 +149,8 @@ export function createOrbitalPointCloud({
     get samples() { return currentSamples },
     setSamples,
     updateHighlight,
+    updateSelection,
+    setRevealedCount,
     dispose,
   }
 }

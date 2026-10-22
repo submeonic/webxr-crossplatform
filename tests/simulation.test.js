@@ -6,6 +6,7 @@ import * as THREE from 'three'
 import { createPOrbitalSimulation } from '../src/simulations/p-orbitals/createPOrbitalSimulation.js'
 import { create1SOrbitalSimulation } from '../src/simulations/s-orbitals/create1SOrbitalSimulation.js'
 import { create2SOrbitalSimulation } from '../src/simulations/s-orbitals/create2SOrbitalSimulation.js'
+import { createDOrbitalSimulation } from '../src/simulations/d-orbitals/createDOrbitalSimulation.js'
 import { PalmNavigationMenu } from '../src/systems/navigation/PalmNavigationMenu.js'
 import { PalmNavigationSystem } from '../src/systems/navigation/PalmNavigationSystem.js'
 
@@ -44,21 +45,22 @@ function fixture() {
   return { app, viewer }
 }
 
-test('all simulations share controls, shell limits, and XR-only panel lifecycle', () => {
+test('all families share controls and lifecycle while measurement modes stay distinct', () => {
   const { app } = fixture()
-  for (const create of [create1SOrbitalSimulation, create2SOrbitalSimulation, createPOrbitalSimulation]) {
+  for (const create of [create1SOrbitalSimulation, create2SOrbitalSimulation, createPOrbitalSimulation,createDOrbitalSimulation]) {
     const simulation = create(app)
     simulation.enter()
     assert.ok(simulation.getWebInteractionProfile().horizontalDrag)
     assert.ok(simulation.getWebInteractionProfile().verticalDrag)
     assert.equal(simulation.getViewMode(), 'measurements')
     assert.equal(simulation.pointCloudRoot.visible, true)
-    assert.equal(simulation.probabilityRegionRoot.visible, false)
+    const coverage=simulation.measurementMode==='coverage'
+    assert.equal(simulation.probabilityRegionRoot.visible, coverage)
     assert.equal(simulation.idleCameraOrbit, true)
     simulation.setShellOuterRadiusA0(-20)
     assert.equal(simulation.getShellState().outerRadiusA0, 0.25)
     simulation.setShellOuterRadiusA0(50)
-    assert.equal(simulation.getShellState().outerRadiusA0, 12)
+    assert.equal(simulation.getShellState().outerRadiusA0, simulation.settings.shellMaxRadiusA0)
     simulation.update(1/60, { isXR: true })
     const activity = simulation.group.getObjectByName('GuidedActivityPanel')
     const graph = simulation.group.getObjectByName('RadialProbabilityGraphPanel')
@@ -77,11 +79,12 @@ test('all simulations share controls, shell limits, and XR-only panel lifecycle'
       simulation.orbitalRoot.children.find(
         child => child.name.endsWith('ConstantThicknessFresnelShell'),
       ).visible,
-      true,
+      !coverage,
     )
     assert.equal(simulation.webResampleButton.hidden, false)
     assert.equal(simulation.webViewModeButton.getAttribute('role'), 'switch')
-    assert.equal(simulation.webViewModeButton.getAttribute('aria-checked'), 'true')
+    assert.equal(simulation.webViewModeButton.hidden,coverage)
+    assert.equal(simulation.webViewModeButton.getAttribute('aria-checked'), String(!coverage))
     simulation.setViewMode('measurements')
     assert.ok(simulation.getWebInteractionProfile().verticalDrag)
     assert.equal(simulation.webViewModeButton.getAttribute('aria-checked'), 'false')
@@ -125,20 +128,20 @@ test('XR idle rotation ignores locomotion and menu but resets for pinch drag', (
   assert.ok(simulation.orbitalRoot.rotation.y > pausedYaw)
   simulation.dispose()
 })
-test('2p selection preserves radius, highlight count, sample identity, and inspection yaw', () => {
+test('2p selection preserves coverage, sample identity, and inspection yaw while replaying outcomes', () => {
   const { app, viewer } = fixture()
   const p = createPOrbitalSimulation(app)
   const samples = p.getSamples()
-  p.setShellOuterRadiusA0(4)
-  const shell = p.getShellState()
+  p.setEnclosedProbability(0.65)
   p.orbitalRoot.rotation.y = 1.1
   for (const id of ['2py','2pz','2px']) {
     assert.equal(p.selectOrbital(id), true)
-    assert.deepEqual(p.getShellState(), shell)
+    assert.equal(p.getMeasurementState().probability,0.65)
+    assert.equal(p.getMeasurementState().revealedCount,0)
     assert.equal(p.getSamples(), samples)
     assert.equal(p.orbitalRoot.rotation.y, 1.1)
     assert.equal(p.getSelectedOrbital(), id)
-    assert.equal(p.settings.graphConfig.datasets.at(-1).label, id)
+    assert.equal(p.getMeasurementState().orbitalType, id)
     assert.equal(p.getMenuActions().filter(a => a.active).length, 1)
   }
   assert.equal(p.selectOrbital('bad-id'), false)
@@ -194,6 +197,90 @@ test('resampling replaces outcomes but preserves inspection, selection, and shel
   assert.equal(p.probabilityRegionRoot.visible, true)
   assert.equal(p.webResampleButton.hidden, false)
   p.dispose()
+})
+
+test('reveals count only displayed outcomes, restart on selection, and preserve model on resample',()=>{
+  const {app}=fixture()
+  const d=createDOrbitalSimulation(app)
+  d.enter();d.setEnclosedProbability(.7)
+  assert.equal(d.getMeasurementState().revealedCount,0)
+  assert.equal(d.getMeasurementState().highlightedCount,0)
+  for(let i=0;i<90;i++)d.update(1/60,{isXR:false})
+  const halfway=d.getMeasurementState()
+  assert.ok(halfway.revealedCount>0&&halfway.revealedCount<200)
+  assert.ok(halfway.highlightedCount<=halfway.revealedCount)
+  for(let i=0;i<91;i++)d.update(1/60,{isXR:false})
+  assert.equal(d.getMeasurementState().revealedCount,1000)
+  assert.ok(Math.abs(d.getMeasurementState().highlightedCount/1000-.7)<.06)
+  d.orbitalRoot.rotation.y=.73
+  const radii=d.getSamples().radiiA0
+  d.selectOrbital('3dz2')
+  assert.deepEqual(d.getSamples().radiiA0,radii)
+  assert.equal(d.getMeasurementState().revealedCount,0)
+  assert.equal(d.getMeasurementState().coverageType,'3dz2')
+  const region=d.probabilityRegionRoot,definition=d.getProbabilityRegionDefinition()
+  d.resampleMeasurements(777)
+  assert.equal(d.getSelectedOrbital(),'3dz2')
+  assert.equal(d.probabilityRegionRoot,region)
+  assert.equal(d.getProbabilityRegionDefinition().isovalue,definition.isovalue)
+  assert.equal(d.getMeasurementState().probability,.7)
+  assert.equal(d.orbitalRoot.rotation.y,.73)
+  d.setEnclosedProbability(0)
+  assert.equal(d.probabilityRegionRoot.visible,false)
+  d.setEnclosedProbability(.05)
+  assert.equal(d.probabilityRegionRoot.visible,true)
+  d.dispose();assert.equal(app.scene.children.length,0)
+})
+
+test('XR family tabs keep footer fixed, activate first choices, and defer page replacement until withdrawal',()=>{
+  const {app}=fixture()
+  const simulations=[create1SOrbitalSimulation(app),create2SOrbitalSimulation(app),createPOrbitalSimulation(app),createDOrbitalSimulation(app)]
+  for(const sim of simulations)sim.metadata={id:sim.id,showInXRMenu:true,xrMenuLabel:sim.label,xrMenuOrder:sim.xrMenuOrder}
+  let active=simulations[0],system
+  system=new PalmNavigationSystem({...app,gestureSystem:{},onNavigate:({simulation})=>{active=simulation;system.setActiveSimulation(simulation)}})
+  system.setSimulations(Object.fromEntries(simulations.map(s=>[s.id,s])))
+  system.setActiveSimulation(active);system.menu.setVisible(true)
+  assert.ok(system.menu.buttons.some(b=>b.item.id==='orbital-view-mode'))
+  const footer=()=>system.menu.buttons.filter(b=>b.item.group==='footer').map(b=>({id:b.item.id,...b.layout}))
+  const initialFooter=footer()
+  const tab=system.menu.buttons.find(b=>b.item.id==='family-d')
+  const at=z=>new THREE.Vector3(tab.layout.x,tab.layout.y,z)
+  system.menu.updatePointer(at(.03))
+  assert.equal(system.menu.updatePointer(at(.004)).id,'family-d')
+  system.selectFamily('d')
+  assert.equal(active,simulations[3])
+  assert.equal(system.menu.interaction.lockedButton,tab)
+  assert.ok(system.menu.pendingItems)
+  system.menu.updatePointer(at(.03))
+  assert.equal(system.menu.interaction.lockedButton,null)
+  assert.deepEqual(footer(),initialFooter)
+  assert.equal(system.menu.buttons.filter(b=>b.item.group==='choices').length,5)
+  assert.equal(system.menu.buttons.some(b=>b.item.id==='orbital-view-mode'),false)
+  for(const b of system.menu.buttons) {
+    assert.ok(Math.abs(b.layout.x)+b.layout.width/2<system.menu.settings.width/2)
+    assert.ok(Math.abs(b.layout.y)+b.layout.height/2<system.menu.settings.height/2)
+  }
+  simulations[3].selectOrbital('3dz2')
+  system.selectFamily('p');system.selectFamily('d')
+  assert.equal(active.getSelectedOrbital(),'3dxy')
+  system.selectFamily('s')
+  assert.equal(active,simulations[0])
+  assert.ok(system.menu.buttons.some(b=>b.item.id==='orbital-view-mode'))
+  assert.deepEqual(footer(),initialFooter)
+  const pressTab=id=>{
+    const b=system.menu.buttons.find(b=>b.item.id===id)
+    system.menu.updatePointer(new THREE.Vector3(b.layout.x,b.layout.y,.03))
+    system.menu.updatePointer(new THREE.Vector3(b.layout.x,b.layout.y,.004))
+  }
+  pressTab('family-d');system.selectFamily('d')
+  system.menu.updatePointer(null)
+  assert.equal(system.menu.pendingItems,null)
+  assert.equal(system.menu.buttons.filter(b=>b.item.group==='choices').length,5)
+  pressTab('family-p');system.selectFamily('p')
+  system.menu.setVisible(false)
+  assert.equal(system.menu.pendingItems,null)
+  assert.equal(system.menu.buttons.filter(b=>b.item.group==='choices').length,3)
+  system.menu.dispose();simulations.forEach(sim=>sim.dispose())
 })
 test('context action rows fit panel and preserve poke lock across selection changes', () => {
   const { app } = fixture()

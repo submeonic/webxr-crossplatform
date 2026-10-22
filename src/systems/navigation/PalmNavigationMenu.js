@@ -90,7 +90,7 @@ export class PalmNavigationMenu {
 
     this.settings = {
       width: 0.205,
-      height: 0.19,
+      height: 0.26,
 
       navigationButtonWidth: 0.046,
       navigationButtonHeight: 0.031,
@@ -156,6 +156,8 @@ export class PalmNavigationMenu {
     this.navigationItems = []
     this.activeSimulationId = null
     this.pendingContextActions = null
+    this.pendingItems = null
+    this.heading = 'ORBITALS'
 
     this.interaction = {
       activeButton: null,
@@ -257,7 +259,7 @@ export class PalmNavigationMenu {
     ctx.fillStyle = COLORS.brand
     ctx.font = `bold 43px ${FONT_DISPLAY}`
     ctx.fillText(
-      'SIMULATIONS',
+      this.heading,
       PANEL_LOGICAL_WIDTH * 0.5,
       54,
     )
@@ -274,6 +276,10 @@ export class PalmNavigationMenu {
   }
 
   setItems(items = []) {
+    if(this.interaction.lockedButton) {
+      this.pendingItems=[...items]
+      return
+    }
     this.navigationItems = [...items]
     this.clearButtons()
     this.resetInteraction({ redraw: false })
@@ -304,6 +310,19 @@ export class PalmNavigationMenu {
           y, width, height: this.settings.navigationButtonHeight,
         }))
       })
+    }
+    if(this.navigationItems.some(item=>item.kind==='tab')) {
+      addRow(this.navigationItems.filter(item=>item.kind==='tab'),0.063)
+      const choices=this.navigationItems.filter(item=>item.group==='choices')
+      addRow(choices.slice(0,3),0.02)
+      addRow(choices.slice(3,6),-0.02)
+      addRow(this.navigationItems.filter(item=>item.group==='context'),-0.057)
+      const footer=this.navigationItems.filter(item=>item.group==='footer')
+      footer.forEach((item,i)=>this.buttons.push(this.createButton(item,{
+        x:(i-(footer.length-1)/2)*0.094,y:-0.099,width:0.086,height:0.031,
+      })))
+      this.refreshButtonVisuals()
+      return
     }
     const actions = this.navigationItems.filter(
       item => item.kind === 'action' && !item.hidden,
@@ -372,6 +391,18 @@ export class PalmNavigationMenu {
     this.setItems([...this.navigationItems.filter(item => item.kind !== 'action'), ...actions])
   }
 
+  setHeading(text) {
+    if(this.heading===text)return
+    this.heading=text
+    this.drawPanel()
+  }
+
+  flushPendingItems() {
+    if(this.pendingItems&&!this.interaction.lockedButton) {
+      const pending=this.pendingItems;this.pendingItems=null;this.setItems(pending)
+    }
+  }
+
   clearButtons() {
     for (const button of this.buttons) {
       this.buttonGroup.remove(button.mesh)
@@ -437,6 +468,7 @@ export class PalmNavigationMenu {
     if (!nextVisible) {
       this.resetInteraction()
       this.pointer.visible = false
+      this.flushPendingItems()
       if (this.pendingContextActions) {
         const pending = this.pendingContextActions
         this.pendingContextActions = null
@@ -462,7 +494,7 @@ export class PalmNavigationMenu {
     for (const button of this.buttons) {
       button.active =
         (button.item.kind === 'simulation' && button.item.id === this.activeSimulationId) ||
-        (button.item.kind === 'action' && Boolean(button.item.active))
+        (['action','tab'].includes(button.item.kind) && Boolean(button.item.active))
 
       button.disabled = Boolean(
         button.item.disabled ||
@@ -695,6 +727,7 @@ export class PalmNavigationMenu {
     this.interaction.previousPressProgress = 0
     this.interaction.armed = false
 
+    this.flushPendingItems()
     if (this.pendingContextActions) {
       const pending = this.pendingContextActions
       this.pendingContextActions = null
@@ -706,6 +739,7 @@ export class PalmNavigationMenu {
     if (!this.group.visible || !pointerWorldPosition) {
       this.pointer.visible = false
       this.resetInteraction()
+      this.flushPendingItems()
       return null
     }
 

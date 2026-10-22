@@ -183,6 +183,7 @@ export class OrbitCameraController {
   }
 
   handleKeyDown(event) {
+    if(event.defaultPrevented||event.target?.closest?.('input, textarea, select, button, [role="slider"], [role="radio"]'))return
     if (this.setKey(event.code, true)) {
       this.notifyInteraction()
       event.preventDefault()

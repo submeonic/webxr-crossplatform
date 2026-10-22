@@ -932,24 +932,62 @@ Responsive behavior:
 }
 .orbital-selector button:focus-visible { outline: 3px solid #80b9ff; outline-offset: 3px; }
 
-@media (max-width: 340px) {
-  .mobile-viewer-slot:has(.orbital-controls--with-orientation:not([hidden])) {
-    --mobile-viewer-selector-height: 102px;
-  }
-
+/* Coverage is one shared value across the slider, graph and vertical gesture.
+   Choices get their own row; long d labels never compete with Resample. */
+.orbital-controls--with-orientation {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: 'choices choices' 'coverage actions';
+  gap: 8px 12px;
+}
+.orbital-controls--with-orientation .orbital-control-group--orientation {
+  grid-area: choices;
+  grid-auto-flow: row;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+.orbital-controls--with-orientation .orbital-control-group--view {
+  grid-area: actions;
+  padding: 0;
+  border: 0;
+  align-self: end;
+}
+.orbital-coverage-control {
+  grid-area: coverage;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0 8px;
+  min-width: 0;
+  font: 14px/20px var(--font-body);
+}
+.orbital-coverage-control input {
+  grid-column: 1 / -1;
+  grid-row: 2;
+  width: 100%;
+  margin: 0;
+  min-height: 28px;
+  accent-color: var(--brand);
+  touch-action: pan-y;
+}
+.orbital-coverage-control output { color: var(--brand); font-variant-numeric: tabular-nums; }
+.desktop-radial-graph canvas { touch-action: pan-y; }
+.desktop-radial-graph canvas:focus-visible,
+.orbital-coverage-control input:focus-visible { outline: 3px solid #80b9ff; outline-offset: 3px; }
+@media (max-width: 760px) {
+  /* Reserve the same height with or without the viewer, including narrow phones. */
+  .mobile-viewer-slot[data-viewer-slot='2p-orbital'] { --mobile-viewer-selector-height: 116px; }
+  .mobile-viewer-slot[data-viewer-slot='3d-orbital'] { --mobile-viewer-selector-height: 164px; }
   .mobile-viewer-slot .orbital-controls--with-orientation {
-    flex-direction: column;
+    display: grid;
+    gap: 6px 8px;
   }
-
-  .mobile-viewer-slot .orbital-control-group {
-    flex: none;
-    width: 100%;
-  }
-
-  .mobile-viewer-slot .orbital-controls--with-orientation .orbital-control-group--view {
-    padding-top: 0.35rem;
-    padding-left: 0;
-    border-top: 1px solid var(--line);
-    border-left: 0;
-  }
+  .mobile-viewer-slot .orbital-controls--with-orientation .orbital-control-group--view { padding: 0; border: 0; }
+  .mobile-viewer-slot .orbital-control-group--orientation { gap: 4px; }
+  .mobile-viewer-slot .orbital-controls--with-orientation button { font-size: 13px; padding-inline: 4px; }
+  .mobile-viewer-slot .orbital-coverage-control { font-size: 12px; }
+  /* A floating chapter link must not cover controls when focus scrolls them up. */
+  .backButton { position: absolute; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .fade-scroll { opacity: 1; transform: none; transition: none; }
 }

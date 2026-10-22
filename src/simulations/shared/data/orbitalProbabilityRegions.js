@@ -68,9 +68,7 @@ export function enclosedProbabilityForDefinition(definition) {
   }
 
   if (definition.orbitalType === '2s') {
-    const [innerOuter, shellInner, shellOuter] = definition.boundariesA0
-    return radialCdf2s(innerOuter) +
-      radialCdf2s(shellOuter) - radialCdf2s(shellInner)
+    return radialCdf2s(definition.boundariesA0[0])
   }
 
   return enclosedProbability2p(definition.isovalue)
@@ -108,28 +106,14 @@ function solve1sRegion(target) {
 
 function solve2sRegion(target) {
   validateTarget(target)
-  const maximumOuterDensity = probabilityDensity2s(4)
-  let low = 0
-  let high = maximumOuterDensity
-
-  for (let iteration = 0; iteration < THRESHOLD_ITERATIONS; iteration++) {
-    const threshold = (low + high) * 0.5
-    const boundaries = get2sBoundaries(threshold)
-    const probability = probability2sBetweenBoundaries(boundaries)
-
-    if (probability > target) low = threshold
-    else high = threshold
-  }
-
-  const isovalue = (low + high) * 0.5
-  const boundariesA0 = get2sBoundaries(isovalue)
-
+  const radiusA0 = bisectIncreasing(radialCdf2s, target, 0, 80)
   return {
     orbitalType: '2s',
     enclosedProbability: target,
-    isovalue,
-    boundariesA0: Object.freeze(boundariesA0),
-    componentCount: 2,
+    construction: 'nucleus-centered sphere',
+    isovalue: probabilityDensity2s(radiusA0),
+    boundariesA0: Object.freeze([radiusA0]),
+    componentCount: 1,
   }
 }
 
@@ -157,20 +141,6 @@ function solve2pRegion(target) {
     boundariesA0: Object.freeze(boundariesA0),
     componentCount: 2,
   }
-}
-
-function get2sBoundaries(threshold) {
-  return [
-    bisectDecreasing(probabilityDensity2s, threshold, 0, 2),
-    bisectIncreasing(probabilityDensity2s, threshold, 2, 4),
-    bisectDecreasing(probabilityDensity2s, threshold, 4, 40),
-  ]
-}
-
-function probability2sBetweenBoundaries(boundaries) {
-  const [innerOuter, shellInner, shellOuter] = boundaries
-  return radialCdf2s(innerOuter) +
-    radialCdf2s(shellOuter) - radialCdf2s(shellInner)
 }
 
 function axialDensity2p(radiusA0) {

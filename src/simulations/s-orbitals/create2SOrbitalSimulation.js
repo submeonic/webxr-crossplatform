@@ -22,7 +22,7 @@ export function create2SOrbitalSimulation(app) {
     seed: 2002,
     electronCount: 1000,
 
-    sampleMaxRadiusA0: 12,
+    sampleMaxRadiusA0: 48,
     shellMinRadiusA0: 0.25,
     shellMaxRadiusA0: 12,
     graphMaxRadiusA0: 12,

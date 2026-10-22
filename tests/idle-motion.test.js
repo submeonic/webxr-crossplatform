@@ -32,3 +32,16 @@ test('web camera orbit waits after load and resumes after interaction', () => {
   assert.ok(controller.state.angle > pausedAngle)
   controller.dispose()
 })
+
+test('graph and slider keyboard input cannot also drive the camera',()=>{
+  globalThis.window={addEventListener(){},removeEventListener(){}}
+  const controller=new OrbitCameraController(new THREE.PerspectiveCamera())
+  let prevented=false
+  controller.handleKeyDown({code:'ArrowUp',target:{closest:()=>({})},preventDefault(){prevented=true}})
+  assert.equal(controller.keys.forward,false)
+  assert.equal(prevented,false)
+  controller.handleKeyDown({code:'ArrowUp',target:{closest:()=>null},preventDefault(){prevented=true}})
+  assert.equal(controller.keys.forward,true)
+  assert.equal(prevented,true)
+  controller.dispose()
+})

@@ -321,7 +321,9 @@ export function createWebXRApp(options = {}) {
 
   function resetDesktopView() {
     webInteractionController.reset()
-    orbitCameraController.resetView()
+    orbitCameraController.resetView({
+      height:orbitCameraController.getTargetPosition().y+(activeSimulation?.webCameraHeightOffset??0.15),
+    })
   }
 
   function resetXRPlayerRig() {

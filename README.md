@@ -1,46 +1,63 @@
 # LearnQM orbital viewer
 
 An interactive hydrogen-orbital lesson built with JavaScript, Three.js, WebXR,
-and Vite. The page connects four representations of the same probability
-distribution:
+and Vite. The 3D viewer provides spatial inspection; the adjacent graph quantifies
+what the selected 3D region contains. Every point is an independent position
+measurement outcome, not part of an electron trajectory.
 
-- a seeded 3D point cloud of possible electron measurements;
-- a constant-density boundary enclosing 90% of the orbital probability;
-- a constant-thickness spherical shell that selects points by radius; and
-- a radial-probability graph synchronized with that shell.
+## Orbital families and measurements
 
-The experience is designed for desktop, touch devices, and immersive hand-tracked
-XR. The scientific and interaction intent is instructional: students rotate the
-spatial distribution, scan it by radius, and compare what changes with what stays
-invariant.
+| Family | Available states | Vertical interaction | Graph |
+| --- | --- | --- | --- |
+| s | 1s, 2s | Scan a constant-thickness radial shell | Analytic radial probability density, with 1s reference for 2s |
+| p | 2px, 2py, 2pz | Adjust probability coverage | Enclosed probability and observed measurement fraction versus volume |
+| d | 3dxy, 3dxz, 3dyz, 3dx²−y², 3dz² | Adjust probability coverage | Enclosed probability and observed measurement fraction versus volume |
 
-## Implemented simulations
+The s-only Region switch displays a single nucleus-centered sphere containing
+90% probability. For 2s its radius is approximately 9.125385 a₀; the spherical
+node at 2 a₀ remains inside it. This sphere is distinct from the moving thin
+measurement shell and is not a highest-density set for 2s.
 
-| Simulation | Spatial feature | Radial graph |
-| --- | --- | --- |
-| 1s | Spherically symmetric cloud with no node | Active 1s distribution |
-| 2s | Inner and outer regions separated by a spherical radial node at 2 a₀ | Active 2s distribution with a faint 1s reference |
-| 2p | Two lobes separated by a nodal plane; selectable 2px, 2py, and 2pz orientations | Active 2p distribution with faint 1s and 2s references |
+For p/d, the enclosure contains the highest-density space first. Coverage is Off
+or 5–90%, initially 90%. The selected percentage applies to all components
+combined. The graph's 50% and 90% guides connect probability to volume in a₀³.
+Its changing slope expresses the probability captured by additional space.
+Theoretical curves and enclosure geometry are independent of resampling.
+Yellow graph dots show observed fractions among outcomes already plotted;
+no observed fraction is displayed before the first outcome. Differences from the
+model are sampling fluctuations. The unresolved 0–5% curve is not drawn.
 
-Each simulation currently uses 1,000 deterministic samples. Seeds and visual
-settings live in the simulation factories. All three use a shell range of
-0.25–12 a₀, an initial outer radius of 5.35 a₀, and a shell thickness of 0.25 a₀.
-The graph shows the analytic radial distribution while the count above it reports
-how many sampled points lie inside the selected shell.
+The four clover-shaped d orbitals are rotations of one distribution. The dz²
+state has a separate angular distribution, with axial lobes and an equatorial
+ring separated by conical nodes. Its ring first enters the density enclosure at
+approximately 29.817893% coverage; the graph and guided activity mark this event.
+Full nodal planes/cones are intentionally omitted from the 3D scene to avoid
+transparent layers competing with the enclosure and highlighted measurements.
 
-The Region switch overlays a static 90% highest-density region while leaving
-the sample cloud and scanning shell visible. The 1s region has one spherical boundary;
-2s has a compact inner component and a separate outer shell; and 2p has two
-lobes that follow the selected x, y, or z orientation. Resample creates a new
-set of measurement outcomes while preserving the camera, inspection rotation,
-shell radius, 2p orientation, and region visibility.
+## Measurement accumulation
 
-Changing a 2p orientation rotates the existing canonical 2px sample cloud. It
-does not regenerate samples, change sample radii, reset the shell, or reset the
-user's inspection rotation. This is intentional: orientation changes angular
-probability but not the radial distribution.
+All simulations use 1,000 seeded samples. Selecting a different lesson section or
+orbital clears the displayed outcomes and replays their accumulation over about
+three seconds. Resample generates a fresh sample set and restarts the reveal.
+An exponential time curve exposes instance prefixes: single outcomes early,
+batches per frame later. No point objects or individual timers are allocated.
+The timing is illustrative, not a physical measurement rate.
 
-## Develop, test, and deploy
+Counts and highlights include only revealed samples. Geometry, coverage, camera,
+and inspection rotation survive resampling. Re-selecting the active orbital does
+not replay. Switching p orientations or clover-shaped d orientations rotates the
+existing cloud; switching between clover-shaped d and dz² regenerates angular
+positions with the same seed and radial draws. Reduced-motion preferences skip
+the accumulation animation. Hidden-page time does not complete the reveal.
+
+p/d radii are sampled from their full analytic Gamma distributions. s sampling
+uses sufficiently remote numerical cutoffs (16 a₀ for 1s, 48 a₀ for 2s) that the
+omitted tail is negligible. In particular, 3d must never reuse the old 12 a₀
+sampling cutoff: it excludes about 31% of that distribution. The d presentation
+uses a smaller display scale and elevated desktop camera; graph units remain
+physical units.
+
+## Develop and verify
 
 Use Node 24, matching CI:
 
@@ -51,339 +68,131 @@ npm test
 npm run build
 ```
 
-The development server uses HTTPS and listens on the local network because WebXR
-requires a secure context. Follow the local `vite-plugin-mkcert` certificate setup
-on each test device. The production base path is `/webxr-crossplatform/`.
+The development server uses HTTPS and `vite-plugin-mkcert`, required for headset
+WebXR access. Production base path is `/webxr-crossplatform/`. GitHub Pages
+publishing is configured in `.github/workflows` for `ch1` and manual dispatch.
+The production bundle has a large-chunk warning; Three.js also emits an existing
+Clock deprecation warning.
 
-GitHub Pages deployment is configured in `.github/workflows` for pushes to `ch1`
-and manual workflow dispatch. It installs with `npm ci`, builds `dist`, and deploys
-that directory.
+After changing density equations, quadrature, or surface resolution, regenerate
+and commit the checked-in enclosure data:
 
-## User controls
+```sh
+npm run generate:regions
+npm test
+```
 
-### Desktop and touch
+`precomputedRegions.json` is generated by
+`scripts/generate-probability-regions.js`. Do not edit its values by hand.
+The generator numerically integrates normalized hydrogen density using angular
+Gauss quadrature and analytic radial Gamma CDFs. Compact surface cross-sections,
+probability, volume, and density thresholds are stored at 1% coverage intervals,
+with extra frames at and just after the dz² ring birth.
+
+At runtime, scalar lookups and corresponding surface rings interpolate between
+neighboring frames. The torus is a separate component collapsed at its birth
+threshold; it is never morphed from a polar lobe. Only the neighboring position
+buffers remain cached, so memory does not grow with drag history. No integration
+or root solving runs during input. Geometry interpolation is approximate: tests
+require sampled vertex densities within 0.3% of the selected threshold and mesh
+volume within 1.5% of the integrated model at representative intermediate values.
+Independent seeded statistical tests verify coverage, angular moments, and tails.
+
+## Controls
 
 | Input | Result |
 | --- | --- |
-| Horizontal mouse, pen, or one-finger drag | Rotate the orbital presentation around displayed Z |
-| Vertical mouse, pen, or one-finger drag | Scan the radial shell |
-| Drag directly on the radial graph | Set the shell radius from the graph position |
-| Mouse wheel | Dolly the camera |
-| Two-finger pinch/stretch | Dolly the camera |
-| W/S or Up/Down | Dolly the camera |
-| A/D or Left/Right | Orbit the camera |
-| Region switch | Show or hide the 90% probability region over the sampled outcomes |
-| Resample button | Generate another set of measurement outcomes |
+| Horizontal mouse/touch drag, or sideways XR pinch-drag | Rotate the presentation about displayed Z |
+| Vertical mouse/touch drag, or vertical XR pinch-drag | Scan s radius or adjust p/d coverage |
+| Horizontal drag on graph | Select radius or the coverage corresponding to that volume |
+| Focus graph, then arrows / Home / End | Adjust selection / minimum / maximum |
+| p/d probability slider | Adjust the same shared selection |
+| Wheel, two-finger stretch, W/S | Dolly desktop camera |
+| A/D | Orbit desktop camera |
+| Resample | Generate and reveal a new outcome set |
+| Region, available only for s | Show/hide the fixed 90% sphere |
 
-A one-pointer gesture remains pending until it moves 8 pixels, then locks to the
-dominant horizontal or vertical axis. Multi-pointer gestures must fully release
-before a new one-pointer gesture can begin, preventing jumps when a pinch ends.
-Pointer loss, window blur, or page visibility loss cancels active web input.
+Camera keyboard handling ignores focused form controls and interactive graphs.
+Web drags lock to the dominant axis after 8px. Multi-pointer gestures must release
+fully before a new one-pointer gesture. Blur and tracking loss cancel input.
 
-The simulation-specific web interaction profile owns horizontal and vertical
-drag. Pinch, wheel, and keyboard input remain camera controls. After two seconds
-without web input, the camera resumes a 5°/s orbit around the active simulation.
-Every simulation adds Region and Resample controls below the web viewer.
-The 2p simulation also adds a 2px, 2py, and 2pz radio group. The same choices
-appear as contextual actions in the XR palm menu, where orientation and view
-actions use separate rows to preserve comfortable poke targets.
+The XR menu has persistent s/p/d tabs, two rows of orbital choices, an s-only
+Region action, and a fixed Resample / Exit XR footer. Selecting another family
+activates its first state: 1s, 2px, or 3dxy. Tabs and orbital choices retain the
+4.6 × 3.1cm poke targets; five d choices never squeeze into one row. Page changes
+are deferred until the pressing finger withdraws, including tracking-loss and
+menu-close paths. The heading identifies the active orbital.
 
-### Immersive XR
-
-| Gesture | Result |
-| --- | --- |
-| Pinch, then move sideways | Rotate the orbital presentation around displayed Z |
-| Pinch, then move vertically | Scan the radial shell |
-| Fist/thumb D-pad gesture | Locomotion and turning |
-| Open palm facing the viewer | Open the navigation menu |
-| Opposite index-finger poke | Activate a menu item |
-
-The XR input priority is strict:
-
-1. locomotion;
-2. pinch drag;
-3. palm menu.
-
-Locomotion cancels an active pinch and closes the palm menu. A pending or active
-pinch prevents the menu from opening. Tracking loss cancels the current pinch,
-and every new pinch captures a fresh world-space origin and viewer-right basis.
-
-Pinch detection starts on the first sample at or below an 18 mm thumb/index gap.
-Release requires a gap of at least 40 mm sustained for 100 ms. The axis-drag
-state machine uses these shared defaults:
-
-| Setting | Value |
-| --- | ---: |
-| Motion threshold | 6 mm |
-| Initial dominance ratio | 1.1 |
-| Perpendicular-switch activation | 10 mm |
-| Perpendicular lead over active axis | 8 mm |
-| Switch hold time | 80 ms |
-| Position smoothing time constant | 45 ms |
-| Full shell-range drag | 18 cm |
-
-Only one hand owns a pinch. The active axis can switch when perpendicular intent
-is sustained, but the newly selected control resumes from its current value so
-rotation or shell radius does not jump. The indicator shows the pinch origin and
-smoothed endpoint immediately, then adds direction hints and a guide line after
-axis selection. Limit feedback is passed through when the shell reaches its range.
-
-After three seconds without a pinch, XR slowly rotates the orbital geometry root
-at 3°/s. Locomotion and an open menu do not reset this timer; a pinch does.
-
-The palm menu accepts either open hand, uses the other index finger for poking,
-and exposes simulation navigation plus contextual actions such as the 2p
-orientation row. Its pose ignores wrist roll, limits panel tilt, mirrors the
-anatomical finger direction between hands, and freezes while the opposite finger
-approaches. The configured open-palm dwell is 250 ms with 180 ms tracking grace;
-the enter/exit curl thresholds are 0.18/0.28 and the facing threshold is 30°.
-Placement is 5.5 cm up, 2.5 cm toward the viewer, and 9 cm toward the fingertips,
-with 20° maximum tilt. Buttons wait 400 ms after opening before activation. A held
-poke fires only once and must withdraw before another press.
-
-## Coordinate convention
-
-The labels shown to learners use:
-
-- +X right;
-- +Y forward, away from the initial viewer; and
-- +Z up.
-
-This is a presentation convention, not a change to Three.js world space. Display
-+Y maps to Three.js −Z, while display +Z maps to Three.js +Y. The shared mapping
-is defined in `src/systems/ui/displayCoordinateSystem.js` and is consumed by both
-the coordinate-axis renderer and p-orbital selection. Do not duplicate or
-special-case this mapping in a simulation.
-
-The canonical p cloud points along +X. `OrbitalSelection.js` uses the shared
-display mapping to derive the quaternion for 2px, 2py, or 2pz. The labeled axes
-and point cloud are children of the same rotating visualization root, so
-inspection always rotates them together.
+XR input priority remains locomotion > pinch drag > palm menu. Either open palm
+can own the menu; the other index finger pokes. Opening uses 250ms dwell and
+180ms tracking grace; buttons wait 400ms before activation. A held poke fires
+once. The panel ignores wrist roll, limits tilt to 20°, and freezes during finger
+approach. Pinch thresholds remain 18mm enter and 40mm release sustained for 100ms.
+Axis switching preserves the current measurement and inspection value. Full-range
+vertical travel remains 18cm in XR and 260px on the web.
 
 ## Runtime architecture
 
-`src/main.js` creates every simulation once, registers navigation metadata,
-starts the responsive placement and scroll controllers, and then starts the app
-animation loop.
+`src/main.js` creates four family/lesson instances: 1s, 2s, 2p and 3d. It connects
+scroll navigation, shared viewer placement, activities, and the XR menu.
+`createWebXRApp.js` owns rendering, camera, XR lifecycle, tracking and input
+priority. XR navigation preserves the physical player rig. Exiting XR reconciles
+the active simulation with the visible web lesson and mobile viewer slot.
 
-`src/core/createWebXRApp.js` owns shared platform services:
+`createOrbitalSimulation.js` owns the shared lifecycle and measurement mutation
+paths. `measurementMode: 'coverage'` binds p/d controls to
+`setEnclosedProbability()`; radial simulations bind to `setShellOuterRadiusA0()`.
+Both update geometry, highlights, and desktop/XR graph state together. Generic
+`getValue` / `setValue` bindings in `createOrbitalControls` preserve input behavior
+across measurement units. Radius-named control arguments remain compatibility
+aliases for existing consumers.
 
-- Three.js scene, renderer, camera, lighting, and player rig;
-- WebXR session lifecycle and availability UI;
-- desktop orbit/dolly controls and web pointer routing;
-- hand models, pinch tracking, locomotion, palm navigation, and debug systems;
-- active-simulation switching, update dispatch, resizing, and disposal.
+Important state/lifecycle methods:
 
-All orbital families are built on
-`src/simulations/shared/createOrbitalSimulation.js`. Its important scene hierarchy
-is:
+- `enter()`, `exit()`, `update()`, `dispose()`;
+- `getMeasurementState()` and `getMeasurementControlState()`;
+- `setEnclosedProbability()`, `setCoverageType()` for p/d;
+- `getShellState()`, `setShellOuterRadiusA0()` for s;
+- `getSamples()`, `getMeasurementSeed()`, `resampleMeasurements()`;
+- `restartMeasurementReveal()`, `getMenuActions()`;
+- `getViewMode()` / `setViewMode()` for the s-only Region overlay.
+
+Scene structure keeps the graph and activity stationary while the atom rotates:
 
 ```text
-simulation group
-└── stationary presentation root
-    ├── content anchor
-    │   └── rotating/scaled orbital root
-    │       ├── orientable distribution root
-    │       │   ├── point cloud
-    │       │   └── 90% probability-region boundary
-    │       ├── nucleus
-    │       ├── inner and outer shell meshes
-    │       └── p-only labeled coordinate axes
-    ├── XR radial graph panel
-    └── XR guided-activity panel
+simulation presentation
+├── content anchor
+│   └── scaled / rotating orbital root
+│       ├── orientable distribution (samples + enclosure)
+│       ├── nucleus
+│       ├── radial shell, visible only for s
+│       └── labeled axes for p/d
+├── XR quantitative graph
+└── XR guided activity
 ```
 
-Only the orbital root receives inspection rotation and simulation scale. XR graph
-and activity panels remain stationary relative to the simulation presentation so
-they stay readable while the atom rotates. The desktop camera orbits the
-presentation root around the content-height offset.
+Displayed +X is right, +Y is forward (Three.js −Z), and +Z is up (Three.js +Y).
+`displayCoordinateSystem.js` is the single mapping source. d selection derives
+its base transform from these axes; do not duplicate the mapping in density math.
+Inspection rotates the parent, while state selection transforms the distribution
+child. Densities and highlighting are evaluated in canonical orbital coordinates.
 
-Every simulation exposes a common lifecycle and state API:
+`drawRadialGraph.js` dispatches coverage graphs to `drawProbabilityGraph.js`.
+Both canvas surfaces use the same renderer/state. XR canvas textures redraw only
+when visible; reveal graph updates are limited to 15Hz, with an exact final update.
+`guidedActivities.js` remains the shared source for web and immersive activities.
 
-- `enter()` / `exit()` control visibility and reset transient XR input;
-- `update(deltaTime, context)` updates XR-only panels and idle motion;
-- `handleInput()` routes XR interaction to the active simulation;
-- `getWebInteractionProfile()` supplies simulation-aware web gestures;
-- `getShellState()` and `setShellOuterRadiusA0()` expose shell state;
-- `getSamples()` exposes the current sample set for verification;
-- `getViewMode()` / `setViewMode()` show or hide the Region overlay;
-- `resampleMeasurements()` replaces outcomes without resetting inspection state;
-- `getMenuActions()` optionally supplies contextual palm-menu actions;
-- `dispose()` releases geometries, materials, textures, graphs, and listeners.
+## Responsive layout and acceptance
 
-Simulation changes reset active pinch state before the previous simulation exits.
-Scrolling on the webpage resets desktop framing for the newly active simulation.
-XR palm-menu navigation preserves the player's physical rig transform. Starting
-an XR session resets the rig once while preserving the selected simulation;
-ending XR resets XR interaction systems and restores predictable desktop framing.
+Desktop uses a sticky shared viewer; at 760px and below the same node moves into
+the active section. Every inactive mobile slot reserves its full future height.
+s controls reserve 56px, p 116px, and d 164px, plus existing label/hint and XR-button
+allowances. Never condition these reservations on whether the viewer is present:
+that makes the document jump during navigation.
 
-## Shared shell and graph state
-
-`setShellOuterRadiusA0()` is the single mutation path for shell selection. It:
-
-1. clamps the outer radius;
-2. derives the inner radius from constant shell thickness;
-3. scales both Fresnel shell meshes;
-4. recomputes highlighted sample count; and
-5. updates the desktop graph and XR graph from the same state object.
-
-Keep new controls routed through this method so the 3D highlight, count, graph
-selection line, and XR panel cannot diverge.
-
-The graph renderer in `drawRadialGraph.js` is shared by the responsive HTML canvas
-and the XR canvas texture. Active datasets use bars; comparison datasets use
-faint point traces. All current graphs share the 1s peak as their y maximum so
-cross-orbital visual comparisons remain meaningful. The desktop graph is directly
-interactive; the XR graph is presently display-only.
-
-Guided activities have one source in `guidedActivities.js`. The same title and
-steps are rendered into the web lesson and the XR activity panel.
-
-## Interface theme and XR panels
-
-`src/systems/ui/interfaceTheme.js` is the shared source for web and canvas-based
-XR color and font roles. Agency FB is bundled for display text; Arial Narrow with
-Arial fallback is used for instructions, axes, and controls. Symbol text uses
-Arial for glyph coverage and diagnostic text uses monospace. The app waits for
-both Agency weights before creating simulations because canvas textures do not
-redraw automatically when a web font finishes loading.
-
-The immersive background is `#121212`. XR graph panels default to 1.8 × 1.008 m.
-Guided-activity text reduces its font size as needed to keep all configured steps
-inside the panel. Graph and activity panels face the viewer horizontally rather
-than inheriting headset roll.
-
-## Responsive presentation and scrolling
-
-The page uses three layout modes:
-
-- above 1100px: full two-column lesson with a sticky shared viewer;
-- 761–1100px: compact two-column layout;
-- 760px and below: single-column layout where the same viewer DOM node moves into
-  the active lesson section.
-
-`ScrollSimulationController` selects the section nearest the viewport center.
-The active section receives a ±24px activation-line hysteresis band to avoid
-rapid switching at boundaries. `ResponsiveViewerPlacementController` moves the
-single viewer between the desktop slot and matching `data-viewer-slot`; it defers
-DOM movement while XR is presenting and resizes the renderer after placement.
-
-Mobile layout has a strict no-jump contract. Every lesson section reserves the
-compact height its viewer will need even while the shared viewer is elsewhere:
-
-- the 4:3 canvas plus label and hint in every section;
-- an additional 56px control row for every orbital;
-- an additional 60px XR-button row only when XR is available;
-- 64px of standard label/hint chrome, increased to 108px at 450px and below
-  where the viewer label wraps.
-
-These reservations are defined by CSS custom properties on `.mobile-viewer-slot`.
-Do not collapse inactive slots: releasing space above the scroll position causes
-the page to jump when the viewer moves. Adjust the reserved variables whenever a
-new persistent mobile viewer control is added. The graph follows the reserved
-viewer area with a 32px gap at current mobile gutters.
-
-## Simulation configuration
-
-The shared factory validates these required fields:
-
-- `id`, `label`;
-- `sampleGenerator`, `sampleMaxRadiusA0`;
-- `shellMaxRadiusA0`, `initialShellOuterRadiusA0`;
-- `pointColor`, `highlightColor`, `shellColor`;
-- `desktopGraphContainerId`, `graphConfig`.
-
-Common optional fields include:
-
-- sample state: `seed`, `electronCount`, `a0ToMeters`;
-- shell state: `shellMinRadiusA0`, `shellThicknessA0`, Fresnel alpha/power;
-- appearance: point opacity, highlight opacity, electron/nucleus size;
-- presentation: `simulationScale`, `contentHeight`, `presentationOffset`,
-  `initialYawRadians`, `webInitialCameraDistance`;
-- XR panels: graph/activity positions and sizes, activity content and panel options;
-- controls: `xrFullRangeDragDistanceMeters`, `webShellFullRangeDragPixels`, or
-  overrides under `controls`;
-- XR idle motion: delay and angular speed;
-- navigation metadata: menu label, order, and visibility.
-
-Graph configuration supplies axis bounds, the active dataset ID, and dataset
-objects containing identity, label, role, render style, color, opacity, and a
-`getValue(radiusA0)` function. Return fresh configuration and dataset objects for
-each live simulation: 2p mutates its active dataset label when orientation changes.
-
-Keep mutable state—radius, selection, and current rotation—outside shared config
-objects. Selection changes should transform a child such as `distributionRoot`,
-not overwrite the parent inspection rotation.
-
-## Adding another simulation
-
-1. Add the lesson section, matching `data-simulation`, `data-viewer-slot`, and
-   desktop graph container to `index.html`.
-2. Add the sampler/distribution and a factory that calls
-   `createOrbitalSimulation()` or the s-orbital compatibility wrapper.
-3. Register the instance and navigation metadata in `src/main.js`.
-4. Add the guided activity to `guidedActivities.js`.
-5. If it adds persistent mobile controls, update the reserved slot height rather
-   than allowing active and inactive layouts to differ.
-6. If it adds contextual XR actions, implement `getMenuActions()` with objects
-   containing `id`, `label`, `kind: 'action'`, `active`, and `onSelect`.
-7. Add tests for lifecycle, state preservation, transform invariants, and any new
-   interaction behavior.
-
-## Important implementation constraints
-
-- Text labels are world-up planes, not camera-aligned `THREE.Sprite` objects, so
-  head roll does not tilt instructional text.
-- XR billboards read the renderer-supplied eye camera `matrixWorld` directly.
-  Never call `getWorldPosition()`, `updateWorldMatrix()`, or another matrix-updating
-  helper on the render callback's XR eye camera; doing so can discard locomotion
-  because XR eye cameras do not carry the player-rig parent.
-- System gestures cannot be disabled through a portable WebXR option. Keep custom
-  pinches away from the platform palm-facing system-menu pose.
-- Joint-based gestures are the only XR simulation-action path. Transient pointer
-  selection events are not also routed into the simulation.
-- The point-cloud and labeled axes belong inside the rotating root; graphs and
-  instructional panels do not.
-- Shared graph datasets must not be reused between live configurations because
-  selected-orbital labels are mutable instance state.
-
-## Verification
-
-Automated Node tests cover:
-
-- pinch-axis recognition, switching, and value continuity;
-- input priority and cancellation;
-- shell limits and graph synchronization;
-- 2p transform and selection invariants;
-- idle-motion timing;
-- simulation lifecycle and disposal;
-- palm eligibility, pose math, poke locking, and menu layout;
-- XR camera-matrix integrity while rendering labels.
-
-Run both `npm test` and `npm run build` before merging. The build currently emits
-an existing large-chunk warning, and Three.js emits an existing `THREE.Clock`
-deprecation warning.
-
-Browser checks should cover scene rendering, graph dragging, shell/highlight
-synchronization, responsive placement, stable mobile document height, and the 2p
-selector. Actual hand tracking, stereo readability, comfort, system-gesture
-competition, and headset performance still require physical Quest and Vision Pro
-testing.
-
-### Headset acceptance checklist
-
-1. Pinch sideways and vertically with each hand. Verify only one action changes,
-   axis hints match it, and switching axes does not jump.
-2. Verify deliberate release, tracking loss, locomotion, and simulation changes
-   leave no stuck pinch indicator or resumed old drag.
-3. Attempt to open the palm menu during locomotion and pinch. It must remain closed;
-   after release, either open palm should work.
-4. Select 2px, 2py, and 2pz. Check the title, active control, graph legend, displayed
-   axis alignment, radius preservation, and inspection-rotation preservation.
-5. Open the menu at different heights and wrist angles. Check facing, tilt, mirrored
-   hand behavior, approach freeze, single-fire poke, and withdrawal reset.
-6. Move with locomotion and confirm graph/activity panels remain stationary relative
-   to the simulation, outside the rotating orbital root.
-7. Exit and re-enter XR, then scroll among web sections. Confirm XR panels hide,
-   desktop graphs remain available, the correct mobile slot receives the viewer,
-   and the page does not jump when the viewer moves.
+Node tests cover scientific probabilities, geometry and topology, reveal timing,
+family-menu layout and poke locking, lifecycle/disposal, transforms, shell/coverage
+state, input priority, idle behavior, and XR eye-camera integrity. See
+`docs/UX_AUDIT.md` for the final interface/content review. Physical Quest and Vision
+Pro checks remain necessary for hand tracking, stereo transparency, comfortable
+reach, text readability, and GPU/frame-time performance.

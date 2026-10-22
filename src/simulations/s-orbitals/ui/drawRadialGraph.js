@@ -1,5 +1,6 @@
 import { FONT_DISPLAY, FONT_BODY } from '../../../systems/ui/interfaceTheme.js'
 import { BOHR_RADIUS_ANGSTROM } from '../data/sOrbitalDistributions.js'
+import { drawProbabilityGraph } from '../../shared/ui/drawProbabilityGraph.js'
 
 export const RADIAL_GRAPH_LOGICAL_WIDTH = 500
 export const RADIAL_GRAPH_LOGICAL_HEIGHT = 400
@@ -72,6 +73,7 @@ export function drawRadialGraph(ctx, {
   width = RADIAL_GRAPH_LOGICAL_WIDTH,
   height = RADIAL_GRAPH_LOGICAL_HEIGHT,
 } = {}) {
+  if (graphConfig?.kind === 'coverage') return drawProbabilityGraph(ctx,{state,width,height})
   const safeState = {
     orbitalType: '1s',
     innerRadiusA0: 0,
@@ -209,12 +211,12 @@ function drawTopInfo(ctx, state, width) {
 
   ctx.fillStyle = COLORS.brand
   ctx.font = `bold 34px ${FONT_DISPLAY}`
-  ctx.fillText(`${state.highlightedCount}`, centerX, 32)
+  ctx.fillText(`${state.highlightedCount} / ${state.revealedCount ?? state.totalCount}`, centerX, 32)
 
   ctx.fillStyle = COLORS.mutedText
   ctx.font = `600 14px ${FONT_BODY}`
   ctx.fillText(
-    'measurements in selected region',
+    'outcomes in shell / outcomes plotted',
     centerX,
     53,
   )
@@ -261,7 +263,7 @@ function drawAxisLabels(ctx, width, height) {
   ctx.save()
   ctx.translate(28, (GRAPH_TOP + GRAPH_BOTTOM) * 0.5 + 16)
   ctx.rotate(-Math.PI / 2)
-  ctx.fillText('No. of Measurements', 0, 0)
+  ctx.fillText('Radial probability density (a₀⁻¹)', 0, 0)
   ctx.restore()
 }
 

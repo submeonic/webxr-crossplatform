@@ -41,9 +41,11 @@ export function createPOrbitalSimulation(app) {
 
   function selectOrbital(id) {
     if (!P_ORBITALS.some(item => item.id === id)) return false
+    if(selected===id)return true
     simulation.resetXRInteraction('orbital-selected')
     selectOrbitalOrientation(simulation.distributionRoot, id)
     selected = id
+    simulation.restartMeasurementReveal()
     title.setLabel(id)
     simulation.setOrbitalLabel(id)
     for (const [key, button] of buttons) button.setAttribute('aria-checked', String(key === id))
@@ -55,6 +57,7 @@ export function createPOrbitalSimulation(app) {
   const result = {
     ...simulation,
     label: '2p',
+    orbitalChoices:P_ORBITALS,
     selectOrbital,
     getSelectedOrbital: () => selected,
     getOrientationState: () => ({ orientationId: selected, orientationLabel: selected, snapping: false }),

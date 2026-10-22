@@ -18,12 +18,12 @@ export function create1SOrbitalSimulation(app) {
     seed: 1005,
     electronCount: 1000,
 
-    sampleMaxRadiusA0: 5,
+    sampleMaxRadiusA0: 16,
     shellMinRadiusA0: 0.25,
     shellMaxRadiusA0: 12,
     graphMaxRadiusA0: 12,
 
-    initialShellOuterRadiusA0: 5.35,
+    initialShellOuterRadiusA0: 1.15,
     shellThicknessA0: 0.25,
 
     simulationScale: 0.6,

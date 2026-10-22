@@ -8,6 +8,7 @@ import { ScrollSimulationController } from './systems/navigation/ScrollSimulatio
 import { create1SOrbitalSimulation } from './simulations/s-orbitals/create1SOrbitalSimulation.js'
 import { create2SOrbitalSimulation } from './simulations/s-orbitals/create2SOrbitalSimulation.js'
 import { createPOrbitalSimulation } from './simulations/p-orbitals/createPOrbitalSimulation.js'
+import { createDOrbitalSimulation } from './simulations/d-orbitals/createDOrbitalSimulation.js'
 
 function initializeFadeInAnimations() {
   const elements = document.querySelectorAll('.fade-scroll')
@@ -102,6 +103,7 @@ const simulations = {
   '1s-orbital': create1SOrbitalSimulation(app),
   '2s-orbital': create2SOrbitalSimulation(app),
   '2p-orbital': createPOrbitalSimulation(app),
+  '3d-orbital': createDOrbitalSimulation(app),
 }
 
 simulations['1s-orbital'].metadata = {
@@ -127,6 +129,8 @@ simulations['2p-orbital'].metadata = {
   xrMenuOrder: 3,
   showInXRMenu: true,
 }
+
+simulations['3d-orbital'].metadata={id:'3d-orbital',label:'3d Orbitals',xrMenuLabel:'3d',xrMenuOrder:4,showInXRMenu:true}
 
 app.palmNavigationSystem.setSimulations(simulations)
 
@@ -164,6 +168,10 @@ const scrollSimulationController =
   })
 
 app.renderer.xr.addEventListener('sessionend', () => {
+  // Reconcile scroll navigation after XR selected a different family. Clear its
+  // cached identity so the lesson, mobile slot, and simulation cannot disagree.
+  scrollSimulationController.activeSimulationName=null
+  scrollSimulationController.updateFromScroll()
   viewerPlacementController.refreshPlacement()
   app.resize()
 })

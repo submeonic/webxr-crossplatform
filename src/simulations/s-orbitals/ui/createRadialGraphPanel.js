@@ -52,6 +52,7 @@ export function createRadialGraphPanel({
     highlightedCount: 0,
     totalCount: samples.count,
   }
+  let dirty=true
 
   function update(state = {}) {
     latestState = {
@@ -59,9 +60,11 @@ export function createRadialGraphPanel({
       ...state,
     }
 
-    draw()
-    texture.needsUpdate = true
+    dirty=true
+    if(mesh.visible)redraw()
   }
+
+  function redraw() { draw();texture.needsUpdate=true;dirty=false }
 
   function draw() {
     ctx.save()
@@ -86,6 +89,7 @@ export function createRadialGraphPanel({
 
   function setVisible(visible) {
     mesh.visible = visible
+    if(visible&&dirty)redraw()
   }
 
   function dispose() {

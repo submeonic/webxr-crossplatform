@@ -20,7 +20,8 @@
           This 3D/XR experience extends
           <a class="source-link" href="https://learnqm.gatech.edu/Semiconductor-Physics-Visualization/ch1/index.html" target="_blank" rel="noreferrer">Chapter 1 of LearnQM’s Semiconductor Physics Visualization</a>.
           Instead of treating an orbital as a flat picture, you can turn it,
-          scan it by radius, and compare what you see with the graph. The goal
+          scan distances in s orbitals or grow probability enclosures in p and d,
+          and connect what you see with quantitative graphs. The goal
           is to use the extra spatial dimension to explain where an electron
           may be measured—and where it cannot be measured—in each state.
         </p>
@@ -37,23 +38,31 @@
           the electron’s position once each time. Every point is one possible
           outcome from that repeated experiment; the points are not a path
           traveled by one electron. Dense regions mean that outcomes pack
-          closely in space. The graph answers a different question: how many
-          outcomes lie within a thin spherical shell at each distance from the
-          nucleus? Move the shell to connect those two views of probability.
+          closely in space. In s orbitals, a thin moving shell connects distance
+          to radial probability. In p and d orbitals, a shape-following enclosure
+          connects the space it occupies to the probability it contains. Neither
+          enclosure is a hard boundary of the orbital: probability extends beyond it.
         </p>
         <p>
-          On desktop or touch, drag mostly sideways to rotate and mostly
-          vertically to scan the shell; use the wheel or a two-finger pinch to
-          zoom. In WebXR, pinch to begin, then move sideways to rotate or up
-          and down to scan. The guide follows whichever direction is farther
-          from your starting point. Open either palm when no higher-priority
-          interaction is active, then poke a menu item with the opposite index
-          finger. When you stop interacting, a slow rotation resumes so the
-          full 3D form remains visible. Turn on Region to overlay the
-          constant-density boundary enclosing 90% of the probability while
-          keeping the individual outcomes and scanning shell in view. Resample
-          generates another set of measurement outcomes without changing the
-          underlying orbital or region.
+          Drag sideways to rotate. Drag vertically to scan the s shell or adjust
+          p/d coverage from Off to 5–90%; you can also use the probability slider.
+          Drag a graph horizontally, or focus it and use the arrow keys. Wheel or
+          two-finger pinch zooms. In WebXR, pinch and move sideways to rotate or
+          vertically to adjust the same measurement. Open either palm, choose an
+          s, p, or d tab, then poke a choice with the opposite index finger.
+          Each new family starts with its first orbital. Resample and Exit XR
+          stay available; only s orbitals have a Region switch.
+        </p>
+        <p>
+          Every newly selected orbital reveals its outcomes over about three
+          seconds, slowly at first and then faster. Resample draws a fresh set.
+          This timing illustrates repeated measurements, not an electron moving
+          or an experimental measurement rate. Highlighted dots are inside the
+          current shell or enclosure. For p/d, the colored graph is the model;
+          yellow dots are the fraction of plotted outcomes actually enclosed.
+          Expect fluctuations, especially while only a few outcomes are visible.
+          The model and enclosure stay fixed when you resample. Volume is measured
+          in cubic Bohr radii, <i>a</i><sub>0</sub>³; the model curve begins at 5%.
         </p>
 
         <!-- Future desktop, mobile, and XR interaction GIFs go here -->
@@ -116,7 +125,9 @@
               through the zero at the node, and into the larger outer peak.
               Compare the green 2s graph with the faint yellow 1s reference to
               explain how excitation changes both the size and internal
-              structure of the probability distribution.
+              structure of the probability distribution. Turn on Region to see
+              one nucleus-centered sphere containing 90% probability. It surrounds
+              both clusters without removing the radial node inside it.
             </p>
 
             <div
@@ -149,10 +160,20 @@
               subscript names the axis along which the lobes point, so the nodal
               plane is perpendicular to that axis. Rotate the cloud and labeled
               axes together to inspect this relationship from another angle.
-              Then scan the shell and switch orientations again: the 3D
-              direction changes, but the pink radial graph does not. This shows
-              that orientation changes angular probability while leaving the
-              distribution of distances unchanged.
+              Now grow the probability enclosure. Both lobes together contain
+              the displayed percentage. Dense space enters first; capturing the
+              next portion of probability eventually requires much more volume.
+              The graph plots enclosed probability against volume. A steeper
+              curve means that added space captures more probability; a shallower
+              curve means it captures less. Its 50% and 90% guides let you read
+              how much space a chosen probability needs. Changing orientation
+              rotates the lobes but leaves this relationship unchanged.
+            </p>
+            <p>
+              Hold coverage fixed and Resample. The model predicts the fraction
+              of outcomes inside the enclosure, not an exact count for each set.
+              Watch the yellow measured fractions settle toward the model as
+              independent outcomes accumulate.
             </p>
 
             <div
@@ -163,9 +184,49 @@
             <div
               id="2p-orbital-desktop-graph"
               class="desktop-radial-graph"
-              aria-label="2p orbital radial probability graph with 1s and 2s comparisons"
+              aria-label="2p probability and measured fraction versus enclosed volume"
             ></div>
                         
+          </section>
+          <section class="lesson-section fade-scroll" data-simulation="3d-orbital">
+            <p class="eyebrow">Simulation 04</p>
+            <h2>The 3d Orbitals</h2>
+            <p>
+              The five real 3d orbitals reveal how direction can organize a
+              probability cloud. Select 3d<sub>xy</sub>, 3d<sub>xz</sub>, and
+              3d<sub>yz</sub>: four lobes lie between the named axes. In
+              3d<sub>x²−y²</sub>, the lobes instead point along X and Y.
+              Rotate the cloud and its axes together; a viewpoint that overlaps
+              two lobes can conceal a structure that another view makes clear.
+              These four clover-shaped states have two nodal planes and differ
+              by orientation. All 3d states have no radial nodes.
+            </p>
+            <p>
+              Select 3d<sub>z²</sub>. In the elevated desktop view, or by moving
+              your viewpoint in XR, look for two axial lobes and an equatorial
+              ring. Rotate about Z: unlike a clover-shaped enclosure, this
+              enclosure looks unchanged because it is symmetric around that axis.
+              The two angular
+              nodes are cones separating that ring from the polar lobes, rather
+              than flat planes. These are all hydrogen states; real atoms with
+              several electrons need a more elaborate model. The 3d viewer uses
+              a smaller display scale to keep this more extensive cloud in view;
+              graph volumes remain in physical units.
+            </p>
+            <p>
+              Lower coverage below 30%, then increase it slowly. The densest
+              polar regions enter first. Near 29.8% the equatorial ring begins
+              to enter the enclosure: find the corresponding graph marker.
+              The ring was already part of the orbital; changing coverage reveals
+              which parts meet the selected density threshold. Continue toward
+              90% and read the extra volume needed for each increase in probability.
+              Resample at a fixed coverage: geometry stays steady while the
+              highlighted measurement count changes. Follow the relationship
+              between space, probability, and outcomes.
+            </p>
+            <div class="mobile-viewer-slot" data-viewer-slot="3d-orbital"></div>
+            <div id="3d-orbital-desktop-graph" class="desktop-radial-graph"
+                 aria-label="3d probability and measured fraction versus enclosed volume"></div>
           </section>
         </main>
 
@@ -178,7 +239,7 @@
             data-simulation-viewer
           >
             <div class="viewer-label">
-              <span>Interactive 3D / WebXR View</span>
+              <span class="viewer-orbital">1s · Radial scan · 3D / XR</span>
               <span class="viewer-status">Desktop / XR Ready</span>
             </div>
 

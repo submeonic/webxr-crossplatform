@@ -10,6 +10,9 @@ import { createOrbitalPointCloud } from '../s-orbitals/rendering/createOrbitalPo
 import { createDesktopRadialGraph } from '../s-orbitals/ui/createDesktopRadialGraph.js'
 import { createRadialGraphPanel } from '../s-orbitals/ui/createRadialGraphPanel.js'
 import { createProbabilityRegion } from './rendering/createProbabilityRegion.js'
+import { createCoverageRegion } from './rendering/createCoverageRegion.js'
+import { coverageAt, clampCoverage, getCoverageFrames, probabilityDensity } from './data/probabilityCoverage.js'
+import { revealedMeasurementCount } from './measurementReveal.js'
 
 const GRAPH_WORLD_POSITION = new THREE.Vector3()
 const CAMERA_WORLD_POSITION = new THREE.Vector3()
@@ -27,6 +30,15 @@ export function createOrbitalSimulation(app, config) {
   const shellMaximumA0 = config.shellMaxRadiusA0
   const a0ToMeters = config.a0ToMeters ?? 0.25
   const simulationScale = config.simulationScale ?? 1
+  const usesCoverage = config.measurementMode === 'coverage'
+  let coverageType = config.coverageType ?? '2p'
+  let probability = usesCoverage ? 0.9 : 0
+  let coverage = usesCoverage ? coverageAt(coverageType, probability) : null
+  let revealElapsed = 0
+  let revealedCount = 0
+  let sampleDensities = null
+  let observedCounts = []
+  let graphElapsed = 0
 
   const group = new THREE.Group()
   group.name = `${config.label}OrbitalSimulation`
@@ -71,7 +83,9 @@ export function createOrbitalSimulation(app, config) {
   })
   distributionRoot.add(pointCloud.group)
 
-  const probabilityRegion = createProbabilityRegion({
+  let probabilityRegion = usesCoverage ? createCoverageRegion({
+    type:coverageType,a0ToMeters,color:config.regionColor,rimColor:config.regionRimColor,
+  }) : createProbabilityRegion({
     orbitalType: config.regionOrbitalType ?? config.id,
     a0ToMeters,
     enclosedProbability: config.regionProbability ?? 0.9,
@@ -122,6 +136,7 @@ export function createOrbitalSimulation(app, config) {
   innerShell.renderOrder = 11
 
   shellGroup.add(outerShell, innerShell)
+  shellGroup.visible = !usesCoverage
 
   const graphPanel = createRadialGraphPanel({
     samples,
@@ -160,16 +175,23 @@ export function createOrbitalSimulation(app, config) {
       outerRadiusA0: shellState.outerRadiusA0,
       highlightedCount: shellState.highlightedCount,
       totalCount: samples.count,
+      revealedCount,
+      coverageType,
+      probability,
+      volume: coverage?.volume ?? 0,
+      observedCounts,
     }
   }
 
   function updateGraphs() {
+    updateObservedCounts()
     const graphState = getGraphState()
     graphPanel.update(graphState)
     desktopGraph.update(graphState)
   }
 
   function setShellOuterRadiusA0(nextOuterRadiusA0) {
+    if (!Number.isFinite(nextOuterRadiusA0)) return shellState.outerRadiusA0
     shellState.outerRadiusA0 = THREE.MathUtils.clamp(
       nextOuterRadiusA0,
       shellMinimumA0,
@@ -188,21 +210,61 @@ export function createOrbitalSimulation(app, config) {
       shellState.innerRadiusA0 * a0ToMeters,
     )
 
-    shellState.highlightedCount = pointCloud.updateHighlight(
-      shellState.innerRadiusA0,
-      shellState.outerRadiusA0,
-    )
+    updateHighlights()
 
     updateGraphs()
     return shellState.outerRadiusA0
   }
 
+  function cacheSampleDensities() {
+    if (!usesCoverage) return
+    sampleDensities = Float64Array.from(samples.positions, position => probabilityDensity(
+      coverageType, position.x/a0ToMeters, position.y/a0ToMeters, position.z/a0ToMeters,
+    ))
+  }
+
+  function updateHighlights() {
+    shellState.highlightedCount = usesCoverage
+      ? pointCloud.updateSelection(i => probability > 0 && sampleDensities[i] >= coverage.isovalue)
+      : pointCloud.updateHighlight(shellState.innerRadiusA0,shellState.outerRadiusA0)
+  }
+
+  function updateObservedCounts() {
+    if (!usesCoverage) return
+    // Threshold bins accumulate in sample order; no per-frame mesh queries.
+    observedCounts = getCoverageFrames(coverageType).map(frame => {
+      let count=0
+      for(let i=0;i<revealedCount;i++) if(sampleDensities[i]>=frame.isovalue)count++
+      return count
+    })
+  }
+
+  function setEnclosedProbability(value) {
+    if (!usesCoverage) return 0
+    const next=clampCoverage(value)
+    if(next!==probability) {
+      probability=next
+      coverage=probabilityRegion.setProbability(probability)
+      updateHighlights()
+      updateGraphs()
+      updateWebControls()
+    }
+    return probability
+  }
+
+  function restartMeasurementReveal() {
+    revealElapsed=0;revealedCount=0;graphElapsed=0
+    if (globalThis.window?.matchMedia?.('(prefers-reduced-motion: reduce)').matches) revealedCount=samples.count
+    pointCloud.setRevealedCount(revealedCount)
+    updateHighlights();updateGraphs()
+  }
+
   const controls = createOrbitalControls({
     app, target: orbitalRoot,
-    getRadius: () => shellState.outerRadiusA0,
-    setRadius: setShellOuterRadiusA0,
-    minRadius: shellMinimumA0,
-    maxRadius: shellMaximumA0,
+    getValue: () => usesCoverage ? probability : shellState.outerRadiusA0,
+    setValue: usesCoverage ? setEnclosedProbability : setShellOuterRadiusA0,
+    minimum: usesCoverage ? 0 : shellMinimumA0,
+    maximum: usesCoverage ? 0.9 : shellMaximumA0,
     settings: {
       xrShellFullRangeMeters: config.xrFullRangeDragDistanceMeters ?? 0.18,
       webShellFullRangePixels: config.webShellFullRangeDragPixels ?? 260,
@@ -225,10 +287,11 @@ export function createOrbitalSimulation(app, config) {
     samples,
     graphConfig: config.graphConfig,
     ariaLabel: config.desktopGraphAriaLabel,
-    minRadiusA0: shellMinimumA0,
-    maxRadiusA0: shellMaximumA0,
+    minRadiusA0: usesCoverage ? 0 : shellMinimumA0,
+    maxRadiusA0: usesCoverage ? 0.9 : shellMaximumA0,
     onRadiusChange(nextRadiusA0) {
-      setShellOuterRadiusA0(nextRadiusA0)
+      if(usesCoverage)setEnclosedProbability(nextRadiusA0)
+      else setShellOuterRadiusA0(nextRadiusA0)
     },
   })
 
@@ -238,7 +301,7 @@ export function createOrbitalSimulation(app, config) {
     const element = document.createElement('div')
     element.className = 'orbital-selector orbital-controls'
     element.setAttribute('role', 'group')
-    element.setAttribute('aria-label', `${config.label} orbital controls`)
+    element.setAttribute('aria-label', `${config.family==='d'?'3d':config.label} orbital controls`)
     element.hidden = true
 
     const viewActionsGroup = document.createElement('div')
@@ -252,6 +315,7 @@ export function createOrbitalSimulation(app, config) {
     viewModeButton.textContent = 'REGION'
     viewModeButton.setAttribute('role', 'switch')
     viewModeButton.addEventListener('click', toggleViewMode)
+    viewModeButton.hidden=usesCoverage
 
     const resampleButton = document.createElement('button')
     resampleButton.type = 'button'
@@ -266,12 +330,34 @@ export function createOrbitalSimulation(app, config) {
 
     viewActionsGroup.append(viewModeButton, resampleButton)
     element.append(viewActionsGroup)
+    let coverageInput=null,coverageOutput=null
+    if(usesCoverage) {
+      const row=document.createElement('label')
+      row.className='orbital-coverage-control'
+      const text=document.createElement('span');text.textContent='Enclosed probability'
+      coverageInput=document.createElement('input')
+      coverageInput.type='range';coverageInput.min='0';coverageInput.max='90';coverageInput.step='0.1';coverageInput.value='90'
+      coverageInput.setAttribute('aria-label','Enclosed probability; Off or 5 to 90 percent')
+      coverageOutput=document.createElement('output')
+      coverageOutput.textContent='90%'
+      coverageInput.addEventListener('input',()=>{
+        let next=Number(coverageInput.value)/100
+        if(next>0&&next<0.05)next=next>probability ? 0.05 : 0
+        setEnclosedProbability(next)
+      })
+      row.append(text,coverageInput,coverageOutput);element.append(row)
+    }
     document.querySelector('[data-simulation-viewer]')?.append(element)
 
-    return { element, viewActionsGroup, viewModeButton, resampleButton }
+    return { element, viewActionsGroup, viewModeButton, resampleButton,coverageInput,coverageOutput }
   }
 
   function updateWebControls() {
+    if(usesCoverage) {
+      webControls.coverageInput.value=String(probability*100)
+      webControls.coverageOutput.textContent=probability ? `${(probability*100).toFixed(1)}%` : 'Off'
+      webControls.coverageInput.setAttribute('aria-valuetext',probability ? `${(probability*100).toFixed(1)} percent` : 'Enclosure off')
+    }
     const isRegion = viewMode === 'region'
     webControls.viewModeButton.setAttribute(
       'aria-checked',
@@ -291,7 +377,18 @@ export function createOrbitalSimulation(app, config) {
     }
   }
 
+  function updateViewerHints() {
+    const action=usesCoverage ? 'adjust probability' : 'scan radius'
+    const desktop=document.querySelector('.viewer-hint__desktop')
+    const mobile=document.querySelector('.viewer-hint__mobile')
+    if(desktop)desktop.textContent=`Sideways: rotate · vertical: ${action} · scroll: zoom · XR: pinch, then move`
+    if(mobile)mobile.textContent=`Sideways: rotate · vertical: ${action} · two fingers: zoom`
+    const label=document.querySelector('.viewer-orbital')
+    if(label)label.textContent=`${orbitalLabel} · ${usesCoverage?'Probability coverage':'Radial scan'} · 3D / XR`
+  }
+
   function setViewMode(nextMode) {
+    if(usesCoverage)return false
     if (nextMode !== 'measurements' && nextMode !== 'region') return false
     if (viewMode === nextMode) return true
 
@@ -318,12 +415,14 @@ export function createOrbitalSimulation(app, config) {
       seed: nextSeed,
       maxRadiusA0: config.sampleMaxRadiusA0,
       a0ToMeters,
+      orbitalType:coverageType,
     })
 
     pointCloud.setSamples(nextSamples)
     samples = nextSamples
     currentSeed = nextSeed
-    setShellOuterRadiusA0(shellState.outerRadiusA0)
+    cacheSampleDensities()
+    restartMeasurementReveal()
     return currentSeed
   }
 
@@ -338,6 +437,8 @@ export function createOrbitalSimulation(app, config) {
     graphPanel.mesh.lookAt(GRAPH_LOOK_TARGET)
   }
 
+  cacheSampleDensities()
+  pointCloud.setRevealedCount(0)
   setShellOuterRadiusA0(initialShellOuterRadiusA0)
   app.scene.add(group)
 
@@ -362,11 +463,14 @@ export function createOrbitalSimulation(app, config) {
     webViewModeButton: webControls.viewModeButton,
     webResampleButton: webControls.resampleButton,
     settings: config,
+    family:config.family ?? 's',
+    measurementMode:usesCoverage ? 'coverage' : 'radial',
     idleCameraOrbit: true,
 
     desktopOrbitTarget: simulationRoot,
     desktopOrbitOffset: new THREE.Vector3(0, contentHeight, 0),
     webInitialCameraDistance: config.webInitialCameraDistance ?? 5.5,
+    webCameraHeightOffset:config.webCameraHeightOffset??0.15,
     orbitTarget: contentAnchor,
 
     enter() {
@@ -374,6 +478,8 @@ export function createOrbitalSimulation(app, config) {
       desktopGraph.setVisible(true)
       webControls.element.hidden = app.renderer.xr.isPresenting
       xrIdleElapsedSeconds = 0
+      restartMeasurementReveal()
+      updateViewerHints()
     },
 
     exit() {
@@ -403,6 +509,19 @@ export function createOrbitalSimulation(app, config) {
     update(deltaTime, context = {}) {
       const isXR = Boolean(context.isXR)
 
+      if(revealedCount<samples.count) {
+        // Visibility loss cannot advance a whole sequence in one resumed frame.
+        if(!globalThis.document?.hidden)revealElapsed+=Math.max(0,Math.min(deltaTime,0.1))
+        const nextCount=revealedMeasurementCount(revealElapsed,samples.count)
+        if(nextCount!==revealedCount) {
+          revealedCount=nextCount;pointCloud.setRevealedCount(revealedCount);updateHighlights()
+          graphElapsed+=Math.max(0,deltaTime)
+          if(graphElapsed>=1/15||revealedCount===samples.count) {
+            updateGraphs();graphElapsed=0
+          }
+        }
+      }
+
       graphPanel.setVisible(isXR)
       desktopGraph.setVisible(true)
       webControls.element.hidden = isXR
@@ -427,8 +546,9 @@ export function createOrbitalSimulation(app, config) {
 
     setOrbitalLabel(label) {
       orbitalLabel = label
-      const dataset = config.graphConfig.datasets.find(d => d.id === config.graphConfig.activeDatasetId)
+      const dataset = config.graphConfig.datasets?.find(d => d.id === config.graphConfig.activeDatasetId)
       if (dataset) dataset.label = label
+      if(group.visible)updateViewerHints()
       updateGraphs()
     },
 
@@ -461,11 +581,28 @@ export function createOrbitalSimulation(app, config) {
     },
 
     getProbabilityRegionDefinition() {
-      return probabilityRegion.definition
+      return usesCoverage ? {...coverage,orbitalType:coverageType} : probabilityRegion.definition
+    },
+
+    setEnclosedProbability,
+    getMeasurementState:()=>({...getGraphState(),mode:usesCoverage?'coverage':'radial',seed:currentSeed}),
+    getMeasurementControlState:()=>({...controls.xr.getState(),currentValue:usesCoverage?probability:shellState.outerRadiusA0}),
+    restartMeasurementReveal,
+    setCoverageType(nextType) {
+      if(!usesCoverage||nextType===coverageType)return
+      const nextRegion=createCoverageRegion({type:nextType,a0ToMeters,color:config.regionColor,rimColor:config.regionRimColor})
+      distributionRoot.remove(probabilityRegion.group);probabilityRegion.dispose()
+      probabilityRegion=nextRegion;distributionRoot.add(nextRegion.group)
+      coverageType=nextType;coverage=nextRegion.setProbability(probability)
+      // Changing shape preserves radial samples and the seed; angular samples differ.
+      samples=config.sampleGenerator({count:samples.count,seed:currentSeed,a0ToMeters,orbitalType:coverageType,maxRadiusA0:config.sampleMaxRadiusA0})
+      pointCloud.setSamples(samples);cacheSampleDensities();restartMeasurementReveal()
+      result.probabilityRegionRoot=probabilityRegion.group
     },
 
     getMenuActions() {
       return [
+        ...(!usesCoverage ? [
         {
           id: 'orbital-view-mode',
           label: 'REGION',
@@ -474,6 +611,7 @@ export function createOrbitalSimulation(app, config) {
           active: viewMode === 'region',
           onSelect: toggleViewMode,
         },
+        ] : []),
         {
           id: 'resample-measurements',
           label: 'RESAMPLE',
@@ -485,7 +623,7 @@ export function createOrbitalSimulation(app, config) {
     },
 
     getRadialScaleControlState() {
-      return { ...controls.xr.getState(), currentValue: shellState.outerRadiusA0 }
+      return { ...controls.xr.getState(), currentValue: usesCoverage ? probability : shellState.outerRadiusA0 }
     },
 
     setShellOuterRadiusA0(nextOuterRadiusA0) {
