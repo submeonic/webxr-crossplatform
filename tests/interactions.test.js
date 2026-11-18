@@ -4,7 +4,6 @@ import * as THREE from 'three'
 import { AxisDragControlSystem } from '../src/systems/interaction/AxisDragControlSystem.js'
 import { createOrbitalControls } from '../src/systems/interaction/createOrbitalControls.js'
 import { selectOrbitalOrientation } from '../src/simulations/p-orbitals/OrbitalSelection.js'
-import { getPalmPanelPose } from '../src/systems/navigation/palmPanelPose.js'
 import { getDisplayAxisDirection } from '../src/systems/ui/displayCoordinateSystem.js'
 
 const near = (a, b) => assert.ok(Math.abs(a - b) < 1e-8, `${a} != ${b}`)
@@ -155,19 +154,6 @@ test('display axes use X right, Y forward, and Z up', () => {
   assert.deepEqual(getDisplayAxisDirection('Y').toArray(), [0, 0, -1])
   assert.deepEqual(getDisplayAxisDirection('Z').toArray(), [0, 1, 0])
 })
-test('panel remains finite, upright and tilt-limited even directly above/below viewer', () => {
-  const position = new THREE.Vector3(), quaternion = new THREE.Quaternion()
-  for (const viewer of [[0,1,0], [0,-1,0], [0,0,0], [1,10,0], [-1,0,0], [0,0,-1]]) {
-    getPalmPanelPose({ palmCenter: new THREE.Vector3(), viewerPosition: new THREE.Vector3(...viewer) }, position, quaternion)
-    assert.ok([...position.toArray(), ...quaternion.toArray()].every(Number.isFinite))
-    near(quaternion.length(), 1)
-    const normal = new THREE.Vector3(0,0,1).applyQuaternion(quaternion)
-    const up = new THREE.Vector3(0,1,0).applyQuaternion(quaternion)
-    assert.ok(Math.abs(normal.y) <= Math.sin(20 * Math.PI / 180) + 1e-8)
-    assert.ok(up.y > 0.93)
-  }
-})
-
 function settle(control, state) { for (let i = 0; i < 100; i++) control.update(state, 1 / 60) }
 test('smoothing behaves the same at 72 and 90 Hz and filters a sudden sample jump', () => {
   const displacements = []

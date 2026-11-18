@@ -365,24 +365,95 @@ test('finger must approach from the front, never trigger by appearing behind a b
   assert.equal(menu.updatePointer(at(0.004)).id, '2p')
   menu.dispose()
 })
-test('panel ignores palm roll and freezes while the opposite finger approaches', () => {
+test('fixed panel follows rig and physical steps, holds heading through head turns, and resets on exit', () => {
   const { app } = fixture()
-  app.camera.position.set(0,1.6,1)
-  app.camera.updateMatrixWorld()
-  const system = new PalmNavigationSystem({ ...app, gestureSystem:{} })
-  const owner = { tracked:true, palmCenter:new THREE.Vector3(0,1.1,0) }
-  system.updateMenuTransform(owner, 1/60)
-  const position = system.menu.group.position.clone()
-  const quaternion = system.menu.group.quaternion.clone()
-  system.menu.pointer.visible = true
-  owner.palmCenter.x += 0.03
-  system.updateMenuTransform(owner, 1/60)
-  assert.ok(system.menu.group.position.equals(position))
-  assert.ok(system.menu.group.quaternion.equals(quaternion))
-  system.menu.pointer.visible = false
-  system.updateMenuTransform(owner, 1/60)
-  assert.ok(system.menu.group.position.x > position.x)
-  system.menu.dispose()
+  const rig = new THREE.Group()
+  app.scene.add(rig)
+  const transform = { position: new THREE.Vector3(0, 1.6, 0), orientation: new THREE.Quaternion() }
+  const session = { inputSources: [] }
+  const frame = { getViewerPose: () => ({ transform }) }
+  Object.assign(app.renderer.xr, {
+    isPresenting: true, getFrame: () => frame, getSession: () => session, getReferenceSpace: () => ({}),
+  })
+  const system = new PalmNavigationSystem({ ...app, trackingRoot: rig })
+  const panel = system.menu.group
+  system.update(1 / 90)
+  assert.ok(panel.visible && panel.position.x < 0 && panel.position.y < 1.6 && panel.position.z < 0)
+  const position = panel.position.clone()
+  const facing = panel.quaternion.clone()
+  const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(facing)
+  assert.ok(normal.dot(transform.position.clone().sub(position).normalize()) > .999)
+  transform.orientation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2)
+  system.update(1)
+  assert.ok(panel.position.equals(position) && panel.quaternion.equals(facing))
+  rig.position.set(2, 0, 3)
+  rig.rotation.y = .6
+  system.update(1, { allowPoke: false })
+  assert.ok(panel.getWorldPosition(new THREE.Vector3()).distanceTo(rig.localToWorld(position.clone())) < 1e-8)
+  transform.position.x += .02
+  system.update(1)
+  assert.ok(panel.quaternion.equals(facing))
+  transform.position.x += .25
+  system.update(2)
+  assert.ok(panel.position.x > transform.position.x, 'walking right updates body heading')
+  transform.orientation.identity()
+  system.update(2, { forward: true, allowPoke: false })
+  assert.ok(panel.position.z < 0 && panel.quaternion.angleTo(facing) < .001)
+  app.renderer.xr.isPresenting = false
+  system.update(1)
+  assert.equal(panel.visible, false)
+  system.dispose()
+})
+
+test('either index can dim and restore the panel, and interrupted pokes require a new approach', () => {
+  const { app } = fixture()
+  const session = { inputSources: [] }
+  const tip = new THREE.Vector3()
+  const frame = {
+    getViewerPose: () => ({ transform: { position: new THREE.Vector3(0, 1.4, 0), orientation: new THREE.Quaternion() } }),
+    getJointPose: () => ({ transform: { position: tip } }),
+  }
+  Object.assign(app.renderer.xr, {
+    isPresenting: true, getFrame: () => frame, getReferenceSpace: () => ({}), getSession: () => session,
+  })
+  const system = new PalmNavigationSystem(app)
+  system.setSimulations({})
+  const menu = system.menu
+  const aim = (id, z) => {
+    const { x, y } = menu.buttons.find(button => button.item.id === id).layout
+    menu.group.localToWorld(tip.set(x, y, z))
+  }
+  const tick = (allowPoke = true) => system.update(1 / 90, { allowPoke }).activatedItem?.id
+  tick()
+  for (const side of ['right', 'left']) {
+    session.inputSources = [{ handedness: side, hand: new Map([['index-finger-tip', {}]]) }]
+    aim('visibility', .035)
+    tick()
+    aim('visibility', .002)
+    assert.equal(tick(), 'visibility')
+    assert.equal(tick(), undefined)
+    const dim = side === 'right'
+    assert.equal(menu.dimmed, dim)
+    assert.equal(menu.panelMaterial.opacity, dim ? .15 : 1)
+    assert.ok(menu.buttons.every(button => button.material.opacity === menu.panelMaterial.opacity))
+    if (dim) {
+      aim('exit-xr', .035)
+      tick()
+      aim('exit-xr', .002)
+      assert.equal(tick(), undefined)
+    }
+  }
+  aim('exit-xr', .035)
+  tick()
+  tick(false)
+  aim('exit-xr', .002)
+  assert.equal(tick(), undefined)
+  aim('exit-xr', .035)
+  tick()
+  session.inputSources = []
+  tick()
+  assert.equal(menu.group.visible, true)
+  system.dispose()
 })
 
 test('billboard faces the camera with no roll even under a rotated parent', () => {

@@ -1,159 +1,33 @@
 import * as THREE from 'three'
-
 import { PalmNavigationMenu } from './PalmNavigationMenu.js'
-import { areAllFingersOpen } from './palmMenuEligibility.js'
-import { getPalmPanelPose } from './palmPanelPose.js'
 
-const TEMP_WRIST = new THREE.Vector3()
-const TEMP_INDEX_METACARPAL = new THREE.Vector3()
-const TEMP_MIDDLE_METACARPAL = new THREE.Vector3()
-const TEMP_PINKY_METACARPAL = new THREE.Vector3()
-const TEMP_CAMERA_POSITION = new THREE.Vector3()
-const TEMP_INDEX_TIP_POSITION = new THREE.Vector3()
-
-const TEMP_RAW_UP = new THREE.Vector3()
-const TEMP_ACROSS = new THREE.Vector3()
-const TEMP_TO_CAMERA = new THREE.Vector3()
-const WORLD_UP = new THREE.Vector3(0, 1, 0)
-const TEMP_RIGHT = new THREE.Vector3()
-const TEMP_UP = new THREE.Vector3()
-const TEMP_NORMAL = new THREE.Vector3()
-const TEMP_POSITION = new THREE.Vector3()
-const TEMP_QUATERNION = new THREE.Quaternion()
-
-function createHandPoseState(handedness) {
-  return {
-    handedness,
-    tracked: false,
-    openPalm: false,
-    retainedOpenPalm: false,
-    facingScore: -1,
-    enterPose: false,
-    retainPose: false,
-    candidateSeconds: 0,
-
-    palmCenter: new THREE.Vector3(),
-
-    // Anatomical palm basis used for fallback orientation.
-    palmRight: new THREE.Vector3(1, 0, 0),
-    palmUp: new THREE.Vector3(0, 1, 0),
-    palmNormal: new THREE.Vector3(0, 0, 1),
-
-    // Kept separately so the menu can remain positioned toward the
-    // fingers even though its visual top now points toward the thumb.
-    palmFingerDirection: new THREE.Vector3(0, 1, 0),
-  }
-}
+const UP = new THREE.Vector3(0, 1, 0)
+// Offset from eye height in the player's horizontal frame, in meters.
+const OFFSET = new THREE.Vector3(-0.23, -0.28, -0.36)
+const FACE_VIEWER = new THREE.Quaternion().setFromRotationMatrix(
+  new THREE.Matrix4().lookAt(new THREE.Vector3(), OFFSET, UP),
+)
+const head = new THREE.Vector3()
+const direction = new THREE.Vector3()
+const orientation = new THREE.Quaternion()
+const fingertip = new THREE.Vector3()
+const localTip = new THREE.Vector3()
+const WALK_STEP = 0.18
 
 export class PalmNavigationSystem {
-  constructor(options = {}) {
-    const {
-      renderer,
-      camera,
-      scene,
-      trackingRoot = scene,
-      gestureSystem,
-      onNavigate = null,
-      onExitXR = null,
-    } = options
-
-    if (!renderer) {
-      throw new Error('PalmNavigationSystem requires renderer')
-    }
-
-    if (!camera) {
-      throw new Error('PalmNavigationSystem requires camera')
-    }
-
-    if (!scene) {
-      throw new Error('PalmNavigationSystem requires scene')
-    }
-
-    if (!gestureSystem) {
-      throw new Error('PalmNavigationSystem requires gestureSystem')
-    }
-
+  constructor({ renderer, scene, trackingRoot = scene, onNavigate, onExitXR, menuOptions }) {
     this.renderer = renderer
-    this.camera = camera
-    this.scene = scene
     this.trackingRoot = trackingRoot
-    this.gestureSystem = gestureSystem
     this.onNavigate = onNavigate
     this.onExitXR = onExitXR
-
-    this.settings = {
-      holdSeconds: 0.3,
-      graceSeconds: 0.18,
-
-      openCurlEnter: 0.18,
-      openCurlExit: 0.28,
-
-      facingEnterDegrees: 40,
-      facingExitDegrees: 55,
-
-      menuOffsetUp: 0.055,
-      menuOffsetNormal: 0.025,
-      menuOffsetFingers: 0.09,
-      maxPanelTiltDegrees: 20,
-      freezeWhilePoking: true,
-
-      positionSmoothing: 18,
-      rotationSmoothing: 14,
-
-      activationDelaySeconds: 0.4,
-      preferredMenuHand: 'left',
-
-      debugLogging: false,
-      debugForceVisible: false,
-
-      ...options.settings,
-    }
-
-    this.facingEnterDot = Math.cos(
-      THREE.MathUtils.degToRad(
-        this.settings.facingEnterDegrees,
-      ),
-    )
-
-    this.facingExitDot = Math.cos(
-      THREE.MathUtils.degToRad(
-        this.settings.facingExitDegrees,
-      ),
-    )
-
-    this.hands = {
-      left: createHandPoseState('left'),
-      right: createHandPoseState('right'),
-    }
-
-    this.menu = new PalmNavigationMenu(
-      scene,
-      options.menuOptions,
-    )
-
+    this.menu = new PalmNavigationMenu(trackingRoot, menuOptions)
     this.simulationItems = []
     this.simulationById = new Map()
     this.simulationIdByObject = new WeakMap()
-
-    this.state = {
-      phase: 'hidden',
-      visible: false,
-      menuHandedness: null,
-      pointerHandedness: null,
-      facingScore: -1,
-      holdProgress: 0,
-      graceProgress: 0,
-      openedThisFrame: false,
-      closedThisFrame: false,
-      activatedItem: null,
-    }
-
-    this.ownerHandedness = null
-    this.graceElapsed = 0
-    this.visibleElapsed = 0
-    this.hasMenuTransform = false
-    this.inputSourcesByHandedness = { left: null, right: null }
-    this.debugLogElapsed = 0
+    this.walkOrigin = new THREE.Vector3()
+    this.pointerPosition = new THREE.Vector3()
+    this.state = { visible: false, pointerHandedness: null, activatedItem: null }
+    this.reset()
   }
 
   setSimulations(simulations = {}) {
@@ -237,7 +111,7 @@ export class PalmNavigationSystem {
   }
 
   navigateTo(simulation,id=simulation.id) {
-    this.onNavigate?.({id,simulation,source:'xr-palm-menu'})
+    this.onNavigate?.({id,simulation,source:'xr-panel'})
   }
 
   selectFamily(family) {
@@ -259,547 +133,103 @@ export class PalmNavigationSystem {
     return this.state
   }
 
-  getOppositeHandedness(handedness) {
-    return handedness === 'left' ? 'right' : 'left'
+  updatePose(transform, forward, deltaTime) {
+    head.copy(transform.position)
+    direction.subVectors(head, this.walkOrigin)
+    direction.y = 0
+    if (!this.initialized || (forward && !this.wasMovingForward)) {
+      orientation.copy(transform.orientation)
+      direction.set(0, 0, -1).applyQuaternion(orientation)
+      if (Math.hypot(direction.x, direction.z) > 0.01) {
+        this.targetYaw = Math.atan2(-direction.x, -direction.z)
+      }
+      this.walkOrigin.copy(head)
+    } else if (direction.lengthSq() >= WALK_STEP ** 2) {
+      this.targetYaw = Math.atan2(-direction.x, -direction.z)
+      this.walkOrigin.copy(head)
+    }
+
+    // Take the shortest turn. A glance while stationary leaves the tablet in place.
+    const difference = this.targetYaw - this.yaw
+    const arc = Math.atan2(Math.sin(difference), Math.cos(difference))
+    this.yaw = this.initialized ? this.yaw + arc * (1 - Math.exp(-6 * deltaTime)) : this.targetYaw
+    this.initialized = true
+    this.wasMovingForward = forward
+    const group = this.menu.group
+    group.position.copy(OFFSET).applyAxisAngle(UP, this.yaw).add(head)
+    group.quaternion.setFromAxisAngle(UP, this.yaw).multiply(FACE_VIEWER)
+    group.updateWorldMatrix(true, false)
   }
 
-  update(deltaTime, { allowOpen = true } = {}) {
-    this.state.openedThisFrame = false
-    this.state.closedThisFrame = false
+  update(deltaTime, { allowPoke = true, forward = false } = {}) {
+    const xr = this.renderer.xr
     this.state.activatedItem = null
-
-    if (!this.renderer.xr.isPresenting) {
-      if (this.state.visible || this.ownerHandedness) {
-        this.reset()
-      }
+    if (!xr.isPresenting) {
+      if (this.initialized) this.reset()
       return this.state
     }
 
-    const frame = this.renderer.xr.getFrame()
-    const referenceSpace = this.renderer.xr.getReferenceSpace()
-    const session = this.renderer.xr.getSession()
-
-    if (!frame || !referenceSpace || !session) {
+    const frame = xr.getFrame()
+    const referenceSpace = xr.getReferenceSpace()
+    const pose = frame && referenceSpace && frame.getViewerPose(referenceSpace)
+    if (!pose) {
+      this.clearPointer()
       return this.state
     }
 
-    this.trackingRoot.updateWorldMatrix(true, false)
-
-    this.inputSourcesByHandedness.left = null
-    this.inputSourcesByHandedness.right = null
-
-    for (const inputSource of session.inputSources) {
-      if (!inputSource.hand) continue
-      if (
-        inputSource.handedness !== 'left' &&
-        inputSource.handedness !== 'right'
-      ) {
-        continue
-      }
-
-      this.inputSourcesByHandedness[inputSource.handedness] =
-        inputSource
-    }
-
-    const viewerPose = frame.getViewerPose(referenceSpace)
-
-    if (!viewerPose) {
+    this.updatePose(pose.transform, forward, deltaTime)
+    this.state.visible = true
+    this.menu.setVisible(true)
+    if (!allowPoke) {
+      this.clearPointer()
       return this.state
     }
 
-    TEMP_CAMERA_POSITION.set(
-      viewerPose.transform.position.x,
-      viewerPose.transform.position.y,
-      viewerPose.transform.position.z,
-    )
-    this.trackingRoot.localToWorld(TEMP_CAMERA_POSITION)
-
-    this.updateHandPose(
-      this.hands.left,
-      this.inputSourcesByHandedness.left,
-      frame,
-      referenceSpace,
-      TEMP_CAMERA_POSITION,
-    )
-    this.updateHandPose(
-      this.hands.right,
-      this.inputSourcesByHandedness.right,
-      frame,
-      referenceSpace,
-      TEMP_CAMERA_POSITION,
-    )
-
-    if (!this.ownerHandedness) {
-      this.updateCandidates(deltaTime, allowOpen)
-    } else {
-      this.updateOwner(deltaTime)
-    }
-
-    if (this.ownerHandedness) {
-      const owner = this.hands[this.ownerHandedness]
-      this.updateMenuTransform(owner, deltaTime)
-      this.updateMenuInteraction(frame, referenceSpace)
-
-      this.state.facingScore = owner.facingScore
-      this.state.holdProgress = 1
-    } else {
-      this.menu.setVisible(false)
-      this.state.visible = false
-      this.state.phase = this.getCandidatePhase()
-      this.state.facingScore = Math.max(
-        this.hands.left.facingScore,
-        this.hands.right.facingScore,
-      )
-      this.state.holdProgress = Math.max(
-        this.hands.left.candidateSeconds,
-        this.hands.right.candidateSeconds,
-      ) / Math.max(0.0001, this.settings.holdSeconds)
-      this.state.holdProgress = THREE.MathUtils.clamp(
-        this.state.holdProgress,
-        0,
-        1,
-      )
-    }
-
-    if (this.settings.debugLogging) {
-      this.debugLogElapsed += deltaTime
-
-      if (this.debugLogElapsed >= 0.5) {
-        this.debugLogElapsed = 0
-
-        const summarize = (handState) => ({
-          tracked: handState.tracked,
-          open: handState.openPalm,
-          facing: Number(handState.facingScore.toFixed(3)),
-          enter: handState.enterPose,
-          candidate: Number(handState.candidateSeconds.toFixed(2)),
-        })
-
-        console.log('[PalmNavigation]', {
-          phase: this.state.phase,
-          left: summarize(this.hands.left),
-          right: summarize(this.hands.right),
-        })
+    // Retain the approaching hand until it leaves. Never carry an armed press
+    // from one hand to another, including after a tracking interruption.
+    let side = null
+    for (const source of xr.getSession()?.inputSources ?? []) {
+      const tip = source.hand?.get('index-finger-tip')
+      const joint = tip && frame.getJointPose(tip, referenceSpace)
+      if (!joint) continue
+      this.trackingRoot.localToWorld(fingertip.copy(joint.transform.position))
+      this.menu.group.worldToLocal(localTip.copy(fingertip))
+      if (!this.menu.containsPointer(localTip)) continue
+      if (!side || source.handedness === this.state.pointerHandedness) {
+        side = source.handedness
+        this.pointerPosition.copy(fingertip)
       }
     }
-
+    if (side !== this.state.pointerHandedness) this.clearPointer()
+    this.state.pointerHandedness = side
+    const item = this.menu.updatePointer(side ? this.pointerPosition : null)
+    if (item) {
+      this.state.activatedItem = item
+      if (item.kind === 'exit') this.onExitXR?.()
+      else if (item.kind === 'visibility') this.menu.setDimmed(!this.menu.dimmed)
+      else {
+        item.onSelect?.()
+        this.refreshContextActions()
+      }
+    }
     return this.state
   }
 
-  getJointWorldPosition(
-    hand,
-    jointName,
-    frame,
-    referenceSpace,
-    target,
-  ) {
-    const joint = hand?.get?.(jointName)
-    if (!joint) return false
-
-    const pose = frame.getJointPose(joint, referenceSpace)
-    if (!pose) return false
-
-    target.set(
-      pose.transform.position.x,
-      pose.transform.position.y,
-      pose.transform.position.z,
-    )
-
-    this.trackingRoot.localToWorld(target)
-    return true
-  }
-
-  updateHandPose(
-    handState,
-    inputSource,
-    frame,
-    referenceSpace,
-    cameraPosition,
-  ) {
-    handState.tracked = false
-    handState.openPalm = false
-    handState.retainedOpenPalm = false
-    handState.facingScore = -1
-    handState.enterPose = false
-    handState.retainPose = false
-
-    const hand = inputSource?.hand
-    if (!hand) return
-
-    const hasWrist = this.getJointWorldPosition(
-      hand,
-      'wrist',
-      frame,
-      referenceSpace,
-      TEMP_WRIST,
-    )
-    const hasIndex = this.getJointWorldPosition(
-      hand,
-      'index-finger-metacarpal',
-      frame,
-      referenceSpace,
-      TEMP_INDEX_METACARPAL,
-    )
-    const hasMiddle = this.getJointWorldPosition(
-      hand,
-      'middle-finger-metacarpal',
-      frame,
-      referenceSpace,
-      TEMP_MIDDLE_METACARPAL,
-    )
-    const hasPinky = this.getJointWorldPosition(
-      hand,
-      'pinky-finger-metacarpal',
-      frame,
-      referenceSpace,
-      TEMP_PINKY_METACARPAL,
-    )
-
-    if (!hasWrist || !hasIndex || !hasMiddle || !hasPinky) {
-      return
-    }
-
-    TEMP_RAW_UP.subVectors(
-      TEMP_MIDDLE_METACARPAL,
-      TEMP_WRIST,
-    )
-    TEMP_ACROSS.subVectors(
-      TEMP_INDEX_METACARPAL,
-      TEMP_PINKY_METACARPAL,
-    )
-
-    if (
-      TEMP_RAW_UP.lengthSq() <= 0.000001 ||
-      TEMP_ACROSS.lengthSq() <= 0.000001
-    ) {
-      return
-    }
-
-    TEMP_RAW_UP.normalize()
-    TEMP_ACROSS.normalize()
-
-    // Cross in this order so the normal points out through the palm
-    // toward the viewer, rather than through the back of the hand.
-    TEMP_NORMAL
-      .crossVectors(TEMP_ACROSS, TEMP_RAW_UP)
-      .normalize()
-
-    if (handState.handedness === 'left') {
-      TEMP_NORMAL.negate()
-    }
-
-    /*
-     * Preserve an anatomical palm-space basis for fallback use.
-     * The final menu roll is resolved in updateMenuTransform(), where
-     * facing is determined by the viewer and roll stays upright.
-     */
-    TEMP_UP
-      .copy(TEMP_RAW_UP)
-      .addScaledVector(
-        TEMP_NORMAL,
-        -TEMP_RAW_UP.dot(TEMP_NORMAL),
-      )
-
-    if (TEMP_UP.lengthSq() <= 0.000001) return
-    TEMP_UP.normalize()
-
-    TEMP_RIGHT
-      .crossVectors(TEMP_UP, TEMP_NORMAL)
-      .normalize()
-
-    TEMP_UP
-      .crossVectors(TEMP_NORMAL, TEMP_RIGHT)
-      .normalize()
-
-    handState.palmCenter
-      .copy(TEMP_WRIST)
-      .add(TEMP_INDEX_METACARPAL)
-      .add(TEMP_MIDDLE_METACARPAL)
-      .add(TEMP_PINKY_METACARPAL)
-      .multiplyScalar(0.25)
-
-    handState.palmRight.copy(TEMP_RIGHT)
-    handState.palmUp.copy(TEMP_UP)
-    handState.palmNormal.copy(TEMP_NORMAL)
-    handState.palmFingerDirection.copy(TEMP_RAW_UP)
-
-    TEMP_TO_CAMERA.subVectors(
-      cameraPosition,
-      handState.palmCenter,
-    )
-
-    if (TEMP_TO_CAMERA.lengthSq() <= 0.000001) return
-    TEMP_TO_CAMERA.normalize()
-
-    handState.facingScore =
-      handState.palmNormal.dot(TEMP_TO_CAMERA)
-
-    const gestureState =
-      this.gestureSystem.hands[handState.handedness]
-
-    if (!gestureState?.visible) return
-
-    handState.openPalm = areAllFingersOpen(gestureState, this.settings.openCurlEnter)
-    handState.retainedOpenPalm = areAllFingersOpen(gestureState, this.settings.openCurlExit)
-
-    handState.tracked = true
-    handState.enterPose =
-      handState.openPalm &&
-      handState.facingScore >= this.facingEnterDot
-
-    handState.retainPose =
-      handState.retainedOpenPalm &&
-      handState.facingScore >= this.facingExitDot
-  }
-
-  updateCandidates(deltaTime, allowOpen = true) {
-    if (!allowOpen) {
-      for (const hand of Object.values(this.hands)) hand.candidateSeconds = 0
-      return
-    }
-    for (const handState of Object.values(this.hands)) {
-      if (handState.enterPose) {
-        handState.candidateSeconds += deltaTime
-      } else {
-        handState.candidateSeconds = 0
-      }
-    }
-
-    const completed = Object.values(this.hands).filter(
-      (handState) =>
-        handState.candidateSeconds >=
-        this.settings.holdSeconds,
-    )
-
-    if (completed.length === 0) return
-
-    completed.sort((a, b) => {
-      if (a.candidateSeconds !== b.candidateSeconds) {
-        return b.candidateSeconds - a.candidateSeconds
-      }
-
-      if (
-        a.handedness === this.settings.preferredMenuHand
-      ) {
-        return -1
-      }
-
-      if (
-        b.handedness === this.settings.preferredMenuHand
-      ) {
-        return 1
-      }
-
-      return 0
-    })
-
-    this.openForHand(completed[0].handedness)
-  }
-
-  openForHand(handedness) {
-    this.ownerHandedness = handedness
-    this.graceElapsed = 0
-    this.visibleElapsed = 0
-    this.hasMenuTransform = false
-
-    this.state.phase = 'visible'
-    this.state.visible = true
-    this.state.menuHandedness = handedness
-    this.state.pointerHandedness =
-      this.getOppositeHandedness(handedness)
-    this.state.openedThisFrame = true
-    this.state.graceProgress = 0
-
-    for (const handState of Object.values(this.hands)) {
-      handState.candidateSeconds = 0
-    }
-
-    this.menu.resetInteraction()
-    this.menu.setVisible(true)
-  }
-
-  updateOwner(deltaTime) {
-    const owner = this.hands[this.ownerHandedness]
-
-    if (owner.retainPose) {
-      this.graceElapsed = 0
-      this.state.phase = 'visible'
-      this.state.graceProgress = 0
-    } else {
-      this.graceElapsed += deltaTime
-      this.state.phase = 'grace-period'
-      this.state.graceProgress = THREE.MathUtils.clamp(
-        this.graceElapsed /
-          Math.max(0.0001, this.settings.graceSeconds),
-        0,
-        1,
-      )
-
-      if (this.graceElapsed >= this.settings.graceSeconds) {
-        this.close()
-        return
-      }
-    }
-
-    this.visibleElapsed += deltaTime
-    this.state.visible = true
-  }
-
-  updateMenuTransform(owner, deltaTime) {
-    if (!owner.tracked) return
-
-    // Keep a reachable button still while the opposite fingertip approaches or presses it.
-    // Stop freezing if the owner moves away, avoiding a stranded panel.
-    if (this.hasMenuTransform && this.settings.freezeWhilePoking && this.menu.pointer.visible &&
-        this.menu.group.position.distanceTo(owner.palmCenter) < 0.35) return
-
-    this.camera.getWorldPosition(TEMP_CAMERA_POSITION)
-    getPalmPanelPose({
-      palmCenter: owner.palmCenter,
-      viewerPosition: TEMP_CAMERA_POSITION,
-      upOffset: this.settings.menuOffsetUp,
-      fingerDirection: owner.palmFingerDirection,
-      fingerOffset: this.settings.menuOffsetFingers,
-      forwardOffset: this.settings.menuOffsetNormal,
-      maxTiltDegrees: this.settings.maxPanelTiltDegrees,
-      fallbackQuaternion: this.menu.group.quaternion,
-    }, TEMP_POSITION, TEMP_QUATERNION)
-
-    if (!this.hasMenuTransform) {
-      this.menu.group.position.copy(TEMP_POSITION)
-      this.menu.group.quaternion.copy(TEMP_QUATERNION)
-      this.hasMenuTransform = true
-    } else {
-      const positionAlpha =
-        1 - Math.exp(-this.settings.positionSmoothing * deltaTime)
-      const rotationAlpha =
-        1 - Math.exp(-this.settings.rotationSmoothing * deltaTime)
-
-      this.menu.group.position.lerp(
-        TEMP_POSITION,
-        positionAlpha,
-      )
-      this.menu.group.quaternion.slerp(
-        TEMP_QUATERNION,
-        rotationAlpha,
-      )
-    }
-
-    this.menu.group.updateMatrixWorld(true)
-  }
-
-  updateMenuInteraction(frame, referenceSpace) {
-    const pointerHandedness =
-      this.getOppositeHandedness(this.ownerHandedness)
-    const pointerSource =
-      this.inputSourcesByHandedness[pointerHandedness]
-
-    let pointerPosition = null
-
-    if (
-      this.getJointWorldPosition(
-        pointerSource?.hand,
-        'index-finger-tip',
-        frame,
-        referenceSpace,
-        TEMP_INDEX_TIP_POSITION,
-      )
-    ) {
-      pointerPosition = TEMP_INDEX_TIP_POSITION
-    }
-
-    const interactionEnabled =
-      this.visibleElapsed >=
-      this.settings.activationDelaySeconds
-
-    const activatedItem = this.menu.updatePointer(
-      pointerPosition,
-      interactionEnabled,
-    )
-
-    if (!activatedItem) return
-
-    this.state.activatedItem = activatedItem
-
-    if (activatedItem.kind === 'simulation') {
-      const simulation =
-        activatedItem.simulation ??
-        this.simulationById.get(activatedItem.id)
-
-      if (simulation) {
-        this.onNavigate?.({
-          id: activatedItem.id,
-          simulation,
-          source: 'xr-palm-menu',
-        })
-      }
-
-      return
-    }
-
-    if (activatedItem.kind === 'action'||activatedItem.kind==='tab') {
-      activatedItem.onSelect?.()
-      this.refreshContextActions()
-      return
-    }
-
-    if (activatedItem.kind === 'exit') {
-      this.onExitXR?.()
-    }
-  }
-
-  getCandidatePhase() {
-    const hasCandidate = Object.values(this.hands).some(
-      (handState) => handState.candidateSeconds > 0,
-    )
-
-    return hasCandidate ? 'candidate' : 'hidden'
-  }
-
-  close() {
-    const wasVisible = this.state.visible
-
-    this.ownerHandedness = null
-    this.graceElapsed = 0
-    this.visibleElapsed = 0
-    this.hasMenuTransform = false
-
-    this.state.phase = 'hidden'
-    this.state.visible = false
-    this.state.menuHandedness = null
+  clearPointer() {
+    this.menu.updatePointer(null)
     this.state.pointerHandedness = null
-    this.state.facingScore = -1
-    this.state.holdProgress = 0
-    this.state.graceProgress = 0
-    this.state.closedThisFrame = wasVisible
-
-    for (const handState of Object.values(this.hands)) {
-      handState.candidateSeconds = 0
-    }
-
-    this.menu.setVisible(false)
-    this.menu.resetInteraction()
   }
 
   reset() {
-    this.close()
-    this.state.openedThisFrame = false
-    this.state.closedThisFrame = false
+    this.menu.setVisible(false)
+    this.menu.setDimmed(false)
+    this.initialized = false
+    this.wasMovingForward = false
+    this.targetYaw = 0
+    this.yaw = 0
+    this.state.visible = false
+    this.state.pointerHandedness = null
     this.state.activatedItem = null
-
-    this.inputSourcesByHandedness.left = null
-    this.inputSourcesByHandedness.right = null
-    this.debugLogElapsed = 0
-
-    for (const handState of Object.values(this.hands)) {
-      handState.tracked = false
-      handState.openPalm = false
-      handState.retainedOpenPalm = false
-      handState.facingScore = -1
-      handState.enterPose = false
-      handState.retainPose = false
-      handState.candidateSeconds = 0
-    }
   }
 
   dispose() {

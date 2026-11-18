@@ -214,17 +214,13 @@ export function createWebXRApp(options = {}) {
 
   const palmNavigationSystem = new PalmNavigationSystem({
     renderer,
-    camera,
     scene,
     trackingRoot: playerRig,
-    gestureSystem: handLocomotionGestureSystem,
-
-    settings: options.palmNavigationSettings,
     menuOptions: options.palmNavigationMenuOptions,
 
     onNavigate: ({ simulation }) => {
       setActiveSimulation(simulation, {
-        source: 'xr-palm-menu',
+        source: 'xr-panel',
         resetDesktopView: false,
         resetXRPlayerRig: false,
       })

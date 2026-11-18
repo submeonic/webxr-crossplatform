@@ -1,6 +1,6 @@
 # Orbital viewer: decisions for the next pass
 
-Updated October 21, 2026, after the limited web layout / graph refinement.
+October 21, 2026 backlog. The November 18 persistent panel supersedes the palm-menu initiation and display items below. See the current [UX audit](UX_AUDIT.md).
 This is a discussion backlog, not authorization to implement these items.
 
 ## Settled and implemented

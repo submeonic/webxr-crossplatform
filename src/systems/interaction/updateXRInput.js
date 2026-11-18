@@ -1,6 +1,11 @@
-import { hasPinchInteraction } from '../navigation/palmMenuEligibility.js'
+export function hasPinchInteraction(hands = {}) {
+  return ['left', 'right'].some(name => {
+    const hand = hands[name]
+    return hand?.visible && (hand.pinchActive || hand.pinchStarted || hand.pinchCandidateFrames > 0)
+  })
+}
 
-/** Input priority: locomotion > pinch drag > palm menu. */
+/** Input priority: locomotion > pinch drag > panel poke. */
 export function updateXRInput({ deltaTime, app, playerRig, handLocomotionGestureSystem,
   handLocomotionSystem, handInteractionSystem, palmNavigationSystem, activeSimulation,
   resetActiveXRInteraction }) {
@@ -17,9 +22,9 @@ export function updateXRInput({ deltaTime, app, playerRig, handLocomotionGesture
   const pinchBusy = hasPinchInteraction(interactionState) ||
     Boolean(activeSimulation?.isXRInteractionActive?.())
   if (locomotionHand) resetActiveXRInteraction('locomotion')
-  if (locomotionHand || pinchBusy) palmNavigationSystem.close()
   const palmNavigationState = palmNavigationSystem.update(deltaTime, {
-    allowOpen: !locomotionHand && !pinchBusy,
+    allowPoke: !locomotionHand && !pinchBusy,
+    forward: locomotionState.moveZ > 0,
   })
   if (!locomotionHand) {
     activeSimulation?.handleInput?.(interactionState, {

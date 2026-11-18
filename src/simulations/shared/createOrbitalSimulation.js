@@ -322,7 +322,7 @@ export function createOrbitalSimulation(app, config) {
     resampleButton.textContent = 'RESAMPLE'
     resampleButton.setAttribute(
       'aria-label',
-      'Generate a new set of orbital measurements',
+      'Resample orbital measurements',
     )
     resampleButton.addEventListener('click', () => {
       resampleMeasurements()
@@ -358,11 +358,11 @@ export function createOrbitalSimulation(app, config) {
   }
 
   function updateViewerHints() {
-    const action=usesCoverage ? 'adjust probability' : 'scan radius'
+    const action=usesCoverage ? 'set probability' : 'scan'
     const desktop=document.querySelector('.viewer-hint__desktop')
     const mobile=document.querySelector('.viewer-hint__mobile')
-    if(desktop)desktop.textContent=`Sideways: rotate · vertical: ${action} · scroll: zoom · XR: pinch, then move`
-    if(mobile)mobile.textContent=`Sideways: rotate · vertical: ${action} · two fingers: zoom`
+    if(desktop)desktop.textContent=`Drag sideways to turn · up or down to ${action} · scroll to zoom`
+    if(mobile)mobile.textContent=`Drag sideways to turn · up or down to ${action} · pinch to zoom`
     const label=document.querySelector('.viewer-orbital')
     if(label)label.textContent=`${orbitalLabel} · ${usesCoverage?'Probability coverage':'Radial scan'} · 3D / XR`
   }

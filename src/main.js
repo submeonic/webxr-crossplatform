@@ -76,27 +76,6 @@ const app = createWebXRApp({
   desktopIdleOrbitDegreesPerSecond: 5,
   desktopIdleOrbitDelaySeconds: 2,
 
-  // Starting palm-menu tuning values. These are intentionally centralized
-  // here so Quest and Vision Pro testing can tune them without editing the
-  // navigation-system implementation.
-  palmNavigationSettings: {
-    holdSeconds: 0.25,
-    graceSeconds: 0.18,
-    openCurlEnter: 0.18,
-    openCurlExit: 0.28,
-    facingEnterDegrees: 30,
-    facingExitDegrees: 30,
-    menuOffsetUp: 0.055,
-    menuOffsetNormal: 0.025,
-    maxPanelTiltDegrees: 20,
-    freezeWhilePoking: true,
-    positionSmoothing: 18,
-    rotationSmoothing: 14,
-    activationDelaySeconds: 0.4,
-    preferredMenuHand: 'left',
-    debugLogging: false,
-    debugForceVisible: false,
-  },
 })
 
 const simulations = {

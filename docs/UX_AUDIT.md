@@ -1,5 +1,35 @@
 # Orbital feature update: UX and content audit
 
+## November 18, 2026 · persistent XR navigation and shorter lesson
+
+The lower-left panel is available on the first tracked viewer frame, including
+when neither hand is visible. Either index finger can press a button. The eye
+dims the backing and controls to 15%; while dimmed only the eye accepts a poke.
+A front approach arms a button and a held finger activates it once. Losing
+tracking, changing hands or engaging locomotion or pinch clears the press.
+
+The panel is attached to the rig, follows tracked eye height, and tilts toward the
+viewer. Head rotation alone leaves it still. Initial facing, horizontal walking
+in 18 cm increments, and starting forward locomotion establish the heading.
+This approximates body direction from available tracking. A sideways step can
+therefore reorient the panel. Reach, comfort while leaning, rapid hand motion,
+and stereo legibility at 15% still need trials with seated and standing users.
+
+Automated checks exercised both index fingers, dim and restore, suspended
+pokes, loss of hand tracking, room-scale travel, rig turns, glance stability
+and session reset. Desktop Chrome at widths of 1280, 390, and 320 pixels
+displayed all four lessons and their three prompts, kept the viewer with its
+section on mobile, and accepted graph keyboard input, orbital selection and
+resampling. The page fit each viewport horizontally.
+
+The s lessons ask students to compare equal-thickness shells at different
+radii. The 2p lesson uses equal-radius points in different directions to
+introduce enclosures and the volume graph. The 3d activity asks students to
+locate the ring themselves. Web and XR use the same activity text.
+
+## Earlier review
+
+
 Reviewed October 21, 2026. Scope: desktop, touch/mobile, graph input, orbital
 selection, measurement accumulation, immersive menu layout/state, and all lesson
 and guided-activity content. This records software/browser checks; it does not

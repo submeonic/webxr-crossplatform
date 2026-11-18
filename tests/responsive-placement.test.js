@@ -21,7 +21,7 @@ function fixture() {
   const menus = ['1s', '2p', '3d'].map(id => element({ controlsSlot: `${id}-orbital` }))
   const media = { matches: true }
   let xr = false, updates = 0, focusRestored = 0
-  globalThis.window = { matchMedia: () => media }
+  globalThis.window = { matchMedia: query => query === '(max-width: 760px)' ? media : { matches: false } }
   globalThis.document = {
     activeElement: button,
     querySelectorAll: selector => selector === '[data-controls-slot]' ? menus : scenes,

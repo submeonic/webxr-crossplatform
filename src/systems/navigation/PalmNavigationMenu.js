@@ -86,6 +86,7 @@ export class PalmNavigationMenu {
       throw new Error('PalmNavigationMenu requires a scene')
     }
 
+    this.dimmed = false
     this.scene = scene
 
     this.settings = {
@@ -128,7 +129,7 @@ export class PalmNavigationMenu {
     this.panelTexture = createCanvasTexture(this.panelCanvas)
     this.panelMaterial = new THREE.MeshBasicMaterial({
       map: this.panelTexture,
-      transparent: false,
+      transparent: true,
       depthTest: true,
       depthWrite: true,
       side: THREE.DoubleSide,
@@ -312,6 +313,10 @@ export class PalmNavigationMenu {
       })
     }
     if(this.navigationItems.some(item=>item.kind==='tab')) {
+      this.buttons.push(this.createButton(
+        { id: 'visibility', label: 'Visibility', kind: 'visibility' },
+        { x: 0.077, y: 0.105, width: 0.036, height: 0.031 },
+      ))
       addRow(this.navigationItems.filter(item=>item.kind==='tab'),0.063)
       const choices=this.navigationItems.filter(item=>item.group==='choices')
       addRow(choices.slice(0,3),0.02)
@@ -440,6 +445,7 @@ export class PalmNavigationMenu {
       layout.y,
       this.settings.buttonRestZ,
     )
+    mesh.renderOrder = 1
     this.buttonGroup.add(mesh)
 
     return {
@@ -456,6 +462,14 @@ export class PalmNavigationMenu {
       active: false,
       pressProgress: 0,
     }
+  }
+
+  setDimmed(dimmed) {
+    if (this.dimmed === dimmed) return
+    this.dimmed = dimmed
+    this.panelMaterial.opacity = dimmed ? 0.15 : 1
+    this.panelMaterial.depthWrite = !dimmed
+    this.refreshButtonVisuals()
   }
 
   setVisible(visible) {
@@ -496,8 +510,10 @@ export class PalmNavigationMenu {
         (button.item.kind === 'simulation' && button.item.id === this.activeSimulationId) ||
         (['action','tab'].includes(button.item.kind) && Boolean(button.item.active))
 
+      button.material.opacity = this.dimmed ? 0.15 : 1
+      button.material.depthWrite = !this.dimmed
       button.disabled = Boolean(
-        button.item.disabled ||
+        (this.dimmed && button.item.kind !== 'visibility') || button.item.disabled ||
         (button.active && button.item.kind === 'simulation'),
       )
 
@@ -599,6 +615,29 @@ export class PalmNavigationMenu {
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = colors.text
+    if (button.item.kind === 'visibility') {
+      const x = logicalWidth / 2
+      const y = BUTTON_LOGICAL_HEIGHT / 2
+      ctx.strokeStyle = ctx.fillStyle = COLORS.brand
+      ctx.lineWidth = 12
+      ctx.beginPath()
+      ctx.moveTo(x - 88, y)
+      ctx.quadraticCurveTo(x, y - 100, x + 88, y)
+      ctx.quadraticCurveTo(x, y + 100, x - 88, y)
+      ctx.stroke()
+      ctx.beginPath()
+      ctx.arc(x, y, 24, 0, Math.PI * 2)
+      ctx.fill()
+      if (this.dimmed) {
+        ctx.beginPath()
+        ctx.moveTo(x - 78, y + 64)
+        ctx.lineTo(x + 78, y - 64)
+        ctx.stroke()
+      }
+      ctx.restore()
+      button.texture.needsUpdate = true
+      return
+    }
     const fontFamily = button.item.kind === 'exit'
       ? FONT_BODY
       : FONT_DISPLAY
@@ -706,7 +745,7 @@ export class PalmNavigationMenu {
 
   updateHoverStates(hitButton) {
     for (const button of this.buttons) {
-      const nextHovered = button === hitButton
+      const nextHovered = button === hitButton && !button.disabled
 
       if (button.hovered !== nextHovered) {
         button.hovered = nextHovered
@@ -735,6 +774,13 @@ export class PalmNavigationMenu {
     }
   }
 
+  containsPointer(point) {
+    return point.z <= this.settings.hoverDistance &&
+      point.z >= -this.settings.backTolerance &&
+      Math.abs(point.x) <= this.settings.width / 2 + 0.012 &&
+      Math.abs(point.y) <= this.settings.height / 2 + 0.012
+  }
+
   updatePointer(pointerWorldPosition, interactionEnabled = true) {
     if (!this.group.visible || !pointerWorldPosition) {
       this.pointer.visible = false
@@ -748,17 +794,7 @@ export class PalmNavigationMenu {
     TEMP_POINTER_LOCAL.copy(pointerWorldPosition)
     this.group.worldToLocal(TEMP_POINTER_LOCAL)
 
-    const withinDepth =
-      TEMP_POINTER_LOCAL.z <= this.settings.hoverDistance &&
-      TEMP_POINTER_LOCAL.z >= -this.settings.backTolerance
-
-    const withinPanel =
-      Math.abs(TEMP_POINTER_LOCAL.x) <=
-        this.settings.width * 0.5 + 0.012 &&
-      Math.abs(TEMP_POINTER_LOCAL.y) <=
-        this.settings.height * 0.5 + 0.012
-
-    this.pointer.visible = withinDepth && withinPanel
+    this.pointer.visible = this.containsPointer(TEMP_POINTER_LOCAL)
 
     if (this.pointer.visible) {
       this.pointer.position.set(
@@ -768,7 +804,7 @@ export class PalmNavigationMenu {
       )
     }
 
-    const hitButton = withinDepth
+    const hitButton = this.pointer.visible
       ? this.getButtonAtLocalPoint(TEMP_POINTER_LOCAL)
       : null
 

@@ -123,11 +123,13 @@ activates its first state: 1s, 2px, or 3dxy. Tabs and orbital choices retain the
 are deferred until the pressing finger withdraws, including tracking-loss and
 menu-close paths. The heading identifies the active orbital.
 
-XR input priority remains locomotion > pinch drag > palm menu. Either open palm
-can own the menu; the other index finger pokes. Opening uses 250ms dwell and
-180ms tracking grace; buttons wait 400ms before activation. A held poke fires
-once. The panel ignores wrist roll, limits tilt to 20°, and freezes during finger
-approach. Pinch thresholds remain 18mm enter and 40mm release sustained for 100ms.
+The fixed navigation panel sits below eye height on the left. Either index finger
+can press its buttons. The eye dims the panel to 15% and remains available to
+restore it. A held poke fires once. Locomotion and simulation pinches suspend
+poking while the panel stays visible. The panel travels with the rig and physical
+steps. Horizontal walking direction and the start of forward locomotion update
+its heading. Looking around in place preserves the last heading.
+Pinch thresholds remain 18mm enter and 40mm release sustained for 100ms.
 Axis switching preserves the current measurement and inspection value. Full-range
 vertical travel remains 18cm in XR and 260px on the web.
 
