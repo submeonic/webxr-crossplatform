@@ -24,7 +24,7 @@ export function updateXRInput({ deltaTime, app, playerRig, handLocomotionGesture
   if (locomotionHand) resetActiveXRInteraction('locomotion')
   const palmNavigationState = palmNavigationSystem.update(deltaTime, {
     allowPoke: !locomotionHand && !pinchBusy,
-    forward: locomotionState.moveZ > 0,
+    locomoting: Boolean(locomotionState.moveX || locomotionState.moveZ || locomotionState.turnY),
   })
   if (!locomotionHand) {
     activeSimulation?.handleInput?.(interactionState, {

@@ -8,12 +8,15 @@ dims the backing and controls to 15%; while dimmed only the eye accepts a poke.
 A front approach arms a button and a held finger activates it once. Losing
 tracking, changing hands or engaging locomotion or pinch clears the press.
 
-The panel is attached to the rig, follows tracked eye height, and tilts toward the
-viewer. Head rotation alone leaves it still. Initial facing, horizontal walking
-in 18 cm increments, and starting forward locomotion establish the heading.
-This approximates body direction from available tracking. A sideways step can
-therefore reorient the panel. Reach, comfort while leaning, rapid hand motion,
-and stereo legibility at 15% still need trials with seated and standing users.
+The panel holds its full pose while the viewer looks around or crouches in
+place. Physical walking starts after 24 cm of net horizontal headset travel.
+During walking, another 1.2 cm updates placement, and a 180 ms pause restores
+the start threshold. Predominantly vertical movement rebases the walking
+measurement. Travel and turn commands use the locomotion control's existing
+dead zone and reposition the panel immediately. In both cases its offset
+follows horizontal gaze. Near vertical gaze retains the last usable heading.
+A long horizontal lean can resemble a step to headset-only tracking.
+Physical reach and the movement thresholds still need headset trials.
 
 Automated checks exercised both index fingers, dim and restore, suspended
 pokes, loss of hand tracking, room-scale travel, rig turns, glance stability

@@ -12,7 +12,11 @@ const direction = new THREE.Vector3()
 const orientation = new THREE.Quaternion()
 const fingertip = new THREE.Vector3()
 const localTip = new THREE.Vector3()
-const WALK_STEP = 0.18
+// Viewer translation in reference space is our proxy for room-scale walking.
+const WALK_START_METERS = 0.24
+const WALK_CONTINUE_METERS = 0.012
+const WALK_PAUSE_SECONDS = 0.18
+const CROUCH_VERTICAL_METERS = 0.06
 
 export class PalmNavigationSystem {
   constructor({ renderer, scene, trackingRoot = scene, onNavigate, onExitXR, menuOptions }) {
@@ -133,35 +137,51 @@ export class PalmNavigationSystem {
     return this.state
   }
 
-  updatePose(transform, forward, deltaTime) {
+  updatePose(transform, locomoting, deltaTime) {
     head.copy(transform.position)
-    direction.subVectors(head, this.walkOrigin)
-    direction.y = 0
-    if (!this.initialized || (forward && !this.wasMovingForward)) {
-      orientation.copy(transform.orientation)
-      direction.set(0, 0, -1).applyQuaternion(orientation)
-      if (Math.hypot(direction.x, direction.z) > 0.01) {
-        this.targetYaw = Math.atan2(-direction.x, -direction.z)
+    if (this.initialized && !locomoting) {
+      this.secondsSinceTravel += deltaTime
+      if (this.secondsSinceTravel >= WALK_PAUSE_SECONDS) this.walking = false
+
+      const horizontal = Math.hypot(head.x - this.walkOrigin.x, head.z - this.walkOrigin.z)
+      const vertical = Math.abs(head.y - this.walkOrigin.y)
+      // Rebase during a crouch or stand so incidental forward lean does not
+      // accumulate as travel. Keep the panel at its last full pose.
+      if (vertical > CROUCH_VERTICAL_METERS && vertical > horizontal) {
+        this.walkOrigin.copy(head)
+        this.walking = false
+        return
       }
-      this.walkOrigin.copy(head)
-    } else if (direction.lengthSq() >= WALK_STEP ** 2) {
-      this.targetYaw = Math.atan2(-direction.x, -direction.z)
-      this.walkOrigin.copy(head)
+
+      const threshold = this.walking ? WALK_CONTINUE_METERS : WALK_START_METERS
+      if (horizontal < threshold) return
+      this.walking = true
+    } else {
+      this.walking = false
     }
 
-    // Take the shortest turn. A glance while stationary leaves the tablet in place.
-    const difference = this.targetYaw - this.yaw
-    const arc = Math.atan2(Math.sin(difference), Math.cos(difference))
-    this.yaw = this.initialized ? this.yaw + arc * (1 - Math.exp(-6 * deltaTime)) : this.targetYaw
+    // The rig supplies virtual translation and turn. In rig-local space the
+    // tablet offset follows horizontal gaze, even when stepping backward or sideways.
+    orientation.copy(transform.orientation)
+    direction.set(0, 0, -1).applyQuaternion(orientation)
+    if (Math.hypot(direction.x, direction.z) > 0.1) {
+      this.yaw = Math.atan2(-direction.x, -direction.z)
+    } else if (!this.initialized) {
+      // Starting a session looking straight up/down has no projected forward.
+      direction.set(1, 0, 0).applyQuaternion(orientation)
+      this.yaw = Math.atan2(-direction.z, direction.x)
+    }
+
+    this.walkOrigin.copy(head)
+    this.secondsSinceTravel = 0
     this.initialized = true
-    this.wasMovingForward = forward
     const group = this.menu.group
     group.position.copy(OFFSET).applyAxisAngle(UP, this.yaw).add(head)
     group.quaternion.setFromAxisAngle(UP, this.yaw).multiply(FACE_VIEWER)
     group.updateWorldMatrix(true, false)
   }
 
-  update(deltaTime, { allowPoke = true, forward = false } = {}) {
+  update(deltaTime, { allowPoke = true, locomoting = false } = {}) {
     const xr = this.renderer.xr
     this.state.activatedItem = null
     if (!xr.isPresenting) {
@@ -173,11 +193,12 @@ export class PalmNavigationSystem {
     const referenceSpace = xr.getReferenceSpace()
     const pose = frame && referenceSpace && frame.getViewerPose(referenceSpace)
     if (!pose) {
+      this.walking = false
       this.clearPointer()
       return this.state
     }
 
-    this.updatePose(pose.transform, forward, deltaTime)
+    this.updatePose(pose.transform, locomoting, deltaTime)
     this.state.visible = true
     this.menu.setVisible(true)
     if (!allowPoke) {
@@ -224,8 +245,8 @@ export class PalmNavigationSystem {
     this.menu.setVisible(false)
     this.menu.setDimmed(false)
     this.initialized = false
-    this.wasMovingForward = false
-    this.targetYaw = 0
+    this.walking = false
+    this.secondsSinceTravel = 0
     this.yaw = 0
     this.state.visible = false
     this.state.pointerHandedness = null

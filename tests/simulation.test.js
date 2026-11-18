@@ -365,43 +365,80 @@ test('finger must approach from the front, never trigger by appearing behind a b
   assert.equal(menu.updatePointer(at(0.004)).id, '2p')
   menu.dispose()
 })
-test('fixed panel follows rig and physical steps, holds heading through head turns, and resets on exit', () => {
+test('panel holds its full pose at rest and uses gaze during walking, travel, and rig rotation', () => {
   const { app } = fixture()
   const rig = new THREE.Group()
   app.scene.add(rig)
+  const up = new THREE.Vector3(0, 1, 0)
   const transform = { position: new THREE.Vector3(0, 1.6, 0), orientation: new THREE.Quaternion() }
-  const session = { inputSources: [] }
   const frame = { getViewerPose: () => ({ transform }) }
   Object.assign(app.renderer.xr, {
-    isPresenting: true, getFrame: () => frame, getSession: () => session, getReferenceSpace: () => ({}),
+    isPresenting: true, getFrame: () => frame, getSession: () => ({ inputSources: [] }), getReferenceSpace: () => ({}),
   })
   const system = new PalmNavigationSystem({ ...app, trackingRoot: rig })
   const panel = system.menu.group
-  system.update(1 / 90)
-  assert.ok(panel.visible && panel.position.x < 0 && panel.position.y < 1.6 && panel.position.z < 0)
+  const tick = (locomoting = false) => system.update(1 / 90, { locomoting })
+  tick()
+  assert.ok(panel.visible)
   const position = panel.position.clone()
   const facing = panel.quaternion.clone()
+  const offset = position.clone().sub(transform.position)
+  assert.ok(offset.x < 0 && offset.y < 0 && offset.z < 0)
   const normal = new THREE.Vector3(0, 0, 1).applyQuaternion(facing)
-  assert.ok(normal.dot(transform.position.clone().sub(position).normalize()) > .999)
-  transform.orientation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), -Math.PI / 2)
-  system.update(1)
-  assert.ok(panel.position.equals(position) && panel.quaternion.equals(facing))
-  rig.position.set(2, 0, 3)
-  rig.rotation.y = .6
-  system.update(1, { allowPoke: false })
-  assert.ok(panel.getWorldPosition(new THREE.Vector3()).distanceTo(rig.localToWorld(position.clone())) < 1e-8)
-  transform.position.x += .02
-  system.update(1)
-  assert.ok(panel.quaternion.equals(facing))
-  transform.position.x += .25
-  system.update(2)
-  assert.ok(panel.position.x > transform.position.x, 'walking right updates body heading')
+  assert.ok(normal.dot(offset.clone().normalize()) < -.999)
+  function checkOffset(yaw) {
+    const expected = offset.clone().applyAxisAngle(up, yaw).add(transform.position)
+    assert.ok(panel.getWorldPosition(new THREE.Vector3()).distanceTo(rig.localToWorld(expected)) < 1e-8)
+    assert.ok(panel.quaternion.angleTo(new THREE.Quaternion().setFromAxisAngle(up, yaw).multiply(facing)) < 1e-6)
+  }
+
+  // Turn, lean toward a button, crouch with some forward motion, then stand.
+  transform.orientation.setFromAxisAngle(up, -1)
+  for (const [x, y, z] of [[.13, 1.6, 0], [.15, .9, -.2], [0, 1.6, 0]]) {
+    transform.position.set(x, y, z)
+    tick()
+    assert.ok(panel.position.equals(position) && panel.quaternion.equals(facing))
+  }
+
+  // Sidestep to the right while looking left. Look a different way mid-stride.
+  transform.orientation.setFromAxisAngle(up, 1)
+  for (let i = 0; i < 14; i++) { transform.position.x += .02; tick() }
+  checkOffset(1)
+  transform.orientation.setFromAxisAngle(up, .4)
+  transform.position.x += .025
+  tick()
+  checkOffset(.4)
+
+  const stopped = panel.position.clone()
+  const stoppedFacing = panel.quaternion.clone()
   transform.orientation.identity()
-  system.update(2, { forward: true, allowPoke: false })
-  assert.ok(panel.position.z < 0 && panel.quaternion.angleTo(facing) < .001)
+  for (let i = 0; i < 24; i++) tick()
+  transform.position.x += .06
+  tick()
+  assert.ok(panel.position.equals(stopped) && panel.quaternion.equals(stoppedFacing))
+
+  // Command-driven turning works with zero physical steps and a room-scale
+  // head position away from the rig pivot. Sample gaze throughout the turn.
+  rig.rotation.y = .6
+  tick(true)
+  checkOffset(0)
+  transform.orientation.setFromAxisAngle(up, -.8)
+  rig.rotation.y += .2
+  tick(true)
+  checkOffset(-.8)
+  rig.position.set(2, 0, 3)
+  transform.orientation.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0))
+  tick(true)
+  checkOffset(-.8)
+
   app.renderer.xr.isPresenting = false
-  system.update(1)
+  tick()
   assert.equal(panel.visible, false)
+  transform.position.set(0, 1.05, 0)
+  transform.orientation.identity()
+  app.renderer.xr.isPresenting = true
+  tick()
+  checkOffset(0)
   system.dispose()
 })
 

@@ -126,9 +126,10 @@ menu-close paths. The heading identifies the active orbital.
 The fixed navigation panel sits below eye height on the left. Either index finger
 can press its buttons. The eye dims the panel to 15% and remains available to
 restore it. A held poke fires once. Locomotion and simulation pinches suspend
-poking while the panel stays visible. The panel travels with the rig and physical
-steps. Horizontal walking direction and the start of forward locomotion update
-its heading. Looking around in place preserves the last heading.
+poking while the panel stays visible. Looking around, leaning slightly, or crouching in place
+preserves the panel’s position, height, and tilt. While walking or steering
+(including a turn in place), the panel returns to its lower-left offset using
+the horizontal direction of gaze.
 Pinch thresholds remain 18mm enter and 40mm release sustained for 100ms.
 Axis switching preserves the current measurement and inspection value. Full-range
 vertical travel remains 18cm in XR and 260px on the web.
