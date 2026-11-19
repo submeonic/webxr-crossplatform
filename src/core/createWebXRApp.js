@@ -207,7 +207,7 @@ export function createWebXRApp(options = {}) {
     activeScale: 0.965,
   })
 
-  const handInteractionSystem = new HandInteractionSystem(renderer, camera)
+  const handInteractionSystem = new HandInteractionSystem(camera, playerRig, handLocomotionGestureSystem.hands)
 
   const palmNavigationSystem = new PalmNavigationSystem({
     renderer,

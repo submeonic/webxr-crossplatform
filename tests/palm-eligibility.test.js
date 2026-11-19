@@ -25,6 +25,7 @@ test('thumb chain distinguishes straight, bent and missing tracking', () => {
 test('pinch starts immediately and requires sustained opening to release at either refresh rate', () => {
   for (const hz of [72, 90]) {
     const input = new HandInteractionSystem(null, null), hand = input.hands.left
+    input.updatePinchState(hand, .045, 1 / hz)
     input.updatePinchState(hand, .017, 1 / hz)
     assert.equal(hand.pinchStarted, true)
     for (let i = 0; i < hz; i++) input.updatePinchState(hand, .035, 1 / hz)

@@ -186,6 +186,8 @@ export class HandLocomotionGestureSystem {
   createHandState(handedness) {
     return {
       visible: false,
+      inputSource: null,
+      jointPositions: null,
       handedness,
 
       fistActive: false,
@@ -237,7 +239,7 @@ export class HandLocomotionGestureSystem {
     const referenceSpace = this.renderer.xr.getReferenceSpace()
     const session = this.renderer.xr.getSession()
 
-    if (!frame || !referenceSpace || !session) return
+    if (!frame || !referenceSpace || !session || session.visibilityState !== 'visible') return
 
     for (const inputSource of session.inputSources) {
       if (!inputSource.hand) continue
@@ -256,16 +258,17 @@ export class HandLocomotionGestureSystem {
 
       if (!jointPositions) continue
 
-      this.updateHandState(
-        this.hands[handedness],
-        handedness,
-        jointPositions,
-      )
+      const state = this.hands[handedness]
+      state.inputSource = inputSource
+      state.jointPositions = jointPositions
+      this.updateHandState(state, handedness, jointPositions)
     }
   }
 
   resetHand(state) {
     state.visible = false
+    state.inputSource = null
+    state.jointPositions = null
 
     state.fistActive = false
     state.fistConfidence = 0

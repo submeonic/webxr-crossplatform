@@ -1,7 +1,5 @@
 import * as THREE from 'three'
 
-const HANDEDNESS_BY_INDEX = ['left', 'right']
-
 /*
   Pinch thresholds are in meters.
 
@@ -21,15 +19,33 @@ const PINCH_END_DISTANCE = 0.040
 const PINCH_START_FRAMES = 1
 const PINCH_RELEASE_SECONDS = 0.10
 
-const TEMP_THUMB_POSITION = new THREE.Vector3()
-const TEMP_INDEX_POSITION = new THREE.Vector3()
-const TEMP_PINCH_POSITION = new THREE.Vector3()
+// In reference-space meters. Reject collapsed or detached joints without
+// excluding genuine fingertip contact or a tracked hand close to the headset.
+function hasFingerSegment(tip, distal) {
+  const lengthSq = tip.distanceToSquared(distal)
+  return lengthSq > 0.001 ** 2 && lengthSq < 0.07 ** 2
+}
+
+function hasPinchTracking(joints) {
+  if (!joints) return false
+  const wrist = joints.wrist
+  const thumb = joints['thumb-tip']
+  const index = joints['index-finger-tip']
+  const palmSpanSq = wrist.distanceToSquared(joints['middle-finger-phalanx-proximal'])
+  return palmSpanSq > 0.001 ** 2 && palmSpanSq < 0.20 ** 2 &&
+    wrist.distanceToSquared(thumb) < 0.30 ** 2 &&
+    wrist.distanceToSquared(index) < 0.30 ** 2 &&
+    hasFingerSegment(thumb, joints['thumb-phalanx-distal']) &&
+    hasFingerSegment(index, joints['index-finger-phalanx-distal'])
+}
 
 function createHandState(handedness) {
   return {
     handedness,
 
     visible: false,
+    inputSource: null,
+    pinchArmed: false,
 
     pinchActive: false,
     pinchStarted: false,
@@ -50,8 +66,9 @@ function createHandState(handedness) {
 }
 
 export class HandInteractionSystem {
-  constructor(renderer, camera) {
-    this.renderer = renderer
+  constructor(camera, trackingRoot, trackedHands) {
+    this.trackingRoot = trackingRoot
+    this.trackedHands = trackedHands
     this.camera = camera
 
     this.hands = {
@@ -61,8 +78,8 @@ export class HandInteractionSystem {
   }
 
   update(deltaTime = 1 / 60) {
-    this.updateHand(0, deltaTime)
-    this.updateHand(1, deltaTime)
+    this.updateHand(this.hands.left, this.trackedHands.left, deltaTime)
+    this.updateHand(this.hands.right, this.trackedHands.right, deltaTime)
   }
 
   resetTransientState() {
@@ -75,66 +92,49 @@ export class HandInteractionSystem {
 
   reset() {
     for (const handState of Object.values(this.hands)) {
-      handState.visible = false
-
-      handState.pinchActive = false
+      this.clearHandVisibility(handState)
       handState.pinchStarted = false
       handState.pinchEnded = false
-
-      handState.pinchCandidateFrames = 0
-      handState.pinchReleaseFrames = 0
-      handState.pinchReleaseSeconds = 0
-
-      handState.pinchDistance = Infinity
-      handState.previousPinchPosition.copy(handState.pinchPosition)
-      handState.pinchDelta.set(0, 0, 0)
     }
   }
 
-  updateHand(index, deltaTime = 1 / 60) {
-    const handedness = HANDEDNESS_BY_INDEX[index] ?? 'right'
-    const handState = this.hands[handedness]
-
+  updateHand(handState, trackedHand, deltaTime) {
     handState.pinchStarted = false
     handState.pinchEnded = false
     handState.pinchDelta.set(0, 0, 0)
 
-    const hand = this.renderer.xr.getHand(index)
-
-    const thumbTip = hand?.joints?.['thumb-tip']
-    const indexTip = hand?.joints?.['index-finger-tip']
-
-    if (!hand?.visible || !hand.joints?.wrist?.visible || !thumbTip?.visible || !indexTip?.visible) {
+    const joints = trackedHand.jointPositions
+    if (!trackedHand.inputSource || !hasPinchTracking(joints)) {
       this.clearHandVisibility(handState)
       return
     }
 
-    thumbTip.getWorldPosition(TEMP_THUMB_POSITION)
-    indexTip.getWorldPosition(TEMP_INDEX_POSITION)
+    if (handState.inputSource !== trackedHand.inputSource) {
+      this.clearHandVisibility(handState)
+      handState.inputSource = trackedHand.inputSource
+    }
 
-    TEMP_PINCH_POSITION
-      .copy(TEMP_THUMB_POSITION)
-      .add(TEMP_INDEX_POSITION)
-      .multiplyScalar(0.5)
-
-    const pinchDistance =
-      TEMP_THUMB_POSITION.distanceTo(TEMP_INDEX_POSITION)
-
-    handState.visible = true
-    handState.pinchDistance = pinchDistance
-
+    const thumb = joints['thumb-tip']
+    const index = joints['index-finger-tip']
+    handState.pinchDistance = thumb.distanceTo(index)
     handState.previousPinchPosition.copy(handState.pinchPosition)
-    handState.pinchPosition.copy(TEMP_PINCH_POSITION)
+    handState.pinchPosition.copy(thumb).add(index).multiplyScalar(0.5)
+      .applyMatrix4(this.trackingRoot.matrixWorld)
+    if (!handState.visible) handState.previousPinchPosition.copy(handState.pinchPosition)
+    handState.pinchDelta.subVectors(handState.pinchPosition, handState.previousPinchPosition)
+    handState.visible = true
 
-    handState.pinchDelta
-      .copy(handState.pinchPosition)
-      .sub(handState.previousPinchPosition)
-
-    this.updatePinchState(handState, pinchDistance, deltaTime)
+    this.updatePinchState(handState, handState.pinchDistance, deltaTime)
     this.updatePinchRay(handState)
   }
 
   updatePinchState(handState, pinchDistance, deltaTime = 1 / 60) {
+    // After tracking loss, a closed hand must open before it can start a drag.
+    if (!handState.pinchArmed) {
+      handState.pinchArmed = pinchDistance >= PINCH_END_DISTANCE
+      return
+    }
+
     if (!handState.pinchActive) {
       /*
         Not currently pinching:
@@ -187,6 +187,8 @@ export class HandInteractionSystem {
 
   clearHandVisibility(handState) {
     handState.visible = false
+    handState.inputSource = null
+    handState.pinchArmed = false
 
     if (handState.pinchActive) {
       handState.pinchEnded = true
