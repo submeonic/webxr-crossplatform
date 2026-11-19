@@ -14,7 +14,10 @@ import { PalmNavigationSystem } from '../src/systems/navigation/PalmNavigationSy
 // selection, lifecycle and poke logic without requiring a graphics device in CI.
 function element() {
   const attributes = new Map()
-  const context = new Proxy({ measureText: text => ({ width: text.length * 18 }) }, {
+  const context = new Proxy({
+    measureText: text => ({ width: text.length * 18 }),
+    createLinearGradient: () => ({ addColorStop() {} }),
+  }, {
     get: (target, key) => key in target ? target[key] : () => {},
   })
   return { hidden: false, children: [], style: {}, classList: { toggle() {} },
@@ -378,6 +381,7 @@ test('panel holds its full pose at rest and uses gaze during walking, travel, an
   const system = new PalmNavigationSystem({ ...app, trackingRoot: rig })
   const panel = system.menu.group
   const tick = (locomoting = false) => system.update(1 / 90, { locomoting })
+  const settle = () => { for (let i = 0; i < 180; i++) tick() }
   tick()
   assert.ok(panel.visible)
   const position = panel.position.clone()
@@ -403,10 +407,14 @@ test('panel holds its full pose at rest and uses gaze during walking, travel, an
   // Sidestep to the right while looking left. Look a different way mid-stride.
   transform.orientation.setFromAxisAngle(up, 1)
   for (let i = 0; i < 14; i++) { transform.position.x += .02; tick() }
+  assert.ok(panel.quaternion.angleTo(facing) > 0 && panel.quaternion.angleTo(facing) < 1)
+  settle()
   checkOffset(1)
   transform.orientation.setFromAxisAngle(up, .4)
-  transform.position.x += .025
+  transform.position.x += .25
   tick()
+  transform.orientation.identity()
+  settle()
   checkOffset(.4)
 
   const stopped = panel.position.clone()
@@ -415,20 +423,23 @@ test('panel holds its full pose at rest and uses gaze during walking, travel, an
   for (let i = 0; i < 24; i++) tick()
   transform.position.x += .06
   tick()
-  assert.ok(panel.position.equals(stopped) && panel.quaternion.equals(stoppedFacing))
+  assert.ok(panel.position.distanceTo(stopped) < 1e-8 && panel.quaternion.angleTo(stoppedFacing) < 1e-6)
 
   // Command-driven turning works with zero physical steps and a room-scale
   // head position away from the rig pivot. Sample gaze throughout the turn.
   rig.rotation.y = .6
   tick(true)
+  settle()
   checkOffset(0)
   transform.orientation.setFromAxisAngle(up, -.8)
   rig.rotation.y += .2
   tick(true)
+  settle()
   checkOffset(-.8)
   rig.position.set(2, 0, 3)
   transform.orientation.setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0))
   tick(true)
+  settle()
   checkOffset(-.8)
 
   app.renderer.xr.isPresenting = false
@@ -440,6 +451,36 @@ test('panel holds its full pose at rest and uses gaze during walking, travel, an
   tick()
   checkOffset(0)
   system.dispose()
+})
+
+test('panel lerps between travel samples at the same rate across headset refresh rates', () => {
+  const results = []
+  for (const hz of [72, 90, 120]) {
+    const { app } = fixture()
+    const system = new PalmNavigationSystem(app)
+    const transform = { position: new THREE.Vector3(0, 1.6, 0), orientation: new THREE.Quaternion() }
+    const group = system.menu.group
+    const dt = 1 / hz
+    system.updatePose(transform, false, dt)
+    const start = group.position.clone()
+    transform.position.x += .3
+    transform.orientation.setFromAxisAngle(new THREE.Vector3(0, 1, 0), .8)
+    const target = start.clone().sub(new THREE.Vector3(0, 1.6, 0))
+      .applyQuaternion(transform.orientation).add(transform.position)
+    let previous = start.distanceTo(target)
+    for (let i = 0; i < hz / 2; i++) {
+      system.updatePose(transform, false, dt)
+      const remaining = group.position.distanceTo(target)
+      assert.ok(remaining < previous && remaining > .8 * previous, 'gradual progress every frame')
+      previous = remaining
+    }
+    results.push({ remaining: previous, rotation: group.quaternion.clone() })
+    system.dispose()
+  }
+  for (const sample of results.slice(1)) {
+    assert.ok(Math.abs(sample.remaining - results[0].remaining) < 1e-9)
+    assert.ok(sample.rotation.angleTo(results[0].rotation) < 1e-5)
+  }
 })
 
 test('either index can dim and restore the panel, and interrupted pokes require a new approach', () => {
@@ -456,6 +497,8 @@ test('either index can dim and restore the panel, and interrupted pokes require 
   const system = new PalmNavigationSystem(app)
   system.setSimulations({})
   const menu = system.menu
+  assert.equal(menu.panelMaterial.opacity, .8)
+  assert.ok(menu.buttons.every(button => button.material.opacity === .8))
   const aim = (id, z) => {
     const { x, y } = menu.buttons.find(button => button.item.id === id).layout
     menu.group.localToWorld(tip.set(x, y, z))
@@ -471,7 +514,7 @@ test('either index can dim and restore the panel, and interrupted pokes require 
     assert.equal(tick(), undefined)
     const dim = side === 'right'
     assert.equal(menu.dimmed, dim)
-    assert.equal(menu.panelMaterial.opacity, dim ? .15 : 1)
+    assert.equal(menu.panelMaterial.opacity, dim ? .15 : .8)
     assert.ok(menu.buttons.every(button => button.material.opacity === menu.panelMaterial.opacity))
     if (dim) {
       aim('exit-xr', .035)

@@ -17,6 +17,8 @@ const WALK_START_METERS = 0.24
 const WALK_CONTINUE_METERS = 0.012
 const WALK_PAUSE_SECONDS = 0.18
 const CROUCH_VERTICAL_METERS = 0.06
+// Half the remaining distance every 80 ms, independent of headset refresh rate.
+const FOLLOW_HALF_LIFE = 0.08
 
 export class PalmNavigationSystem {
   constructor({ renderer, scene, trackingRoot = scene, onNavigate, onExitXR, menuOptions }) {
@@ -29,6 +31,8 @@ export class PalmNavigationSystem {
     this.simulationById = new Map()
     this.simulationIdByObject = new WeakMap()
     this.walkOrigin = new THREE.Vector3()
+    this.targetPosition = new THREE.Vector3()
+    this.targetRotation = new THREE.Quaternion()
     this.pointerPosition = new THREE.Vector3()
     this.state = { visible: false, pointerHandedness: null, activatedItem: null }
     this.reset()
@@ -137,7 +141,7 @@ export class PalmNavigationSystem {
     return this.state
   }
 
-  updatePose(transform, locomoting, deltaTime) {
+  updateTarget(transform, locomoting, deltaTime) {
     head.copy(transform.position)
     if (this.initialized && !locomoting) {
       this.secondsSinceTravel += deltaTime
@@ -174,10 +178,27 @@ export class PalmNavigationSystem {
 
     this.walkOrigin.copy(head)
     this.secondsSinceTravel = 0
-    this.initialized = true
+    this.targetPosition.copy(OFFSET).applyAxisAngle(UP, this.yaw).add(head)
+    this.targetRotation.setFromAxisAngle(UP, this.yaw).multiply(FACE_VIEWER)
+  }
+
+  updatePose(transform, locomoting, deltaTime) {
+    this.updateTarget(transform, locomoting, deltaTime)
     const group = this.menu.group
-    group.position.copy(OFFSET).applyAxisAngle(UP, this.yaw).add(head)
-    group.quaternion.setFromAxisAngle(UP, this.yaw).multiply(FACE_VIEWER)
+    const settled = group.position.distanceToSquared(this.targetPosition) < 1e-8 &&
+      1 - Math.abs(group.quaternion.dot(this.targetRotation)) < 1e-8
+    if (!this.initialized || settled) {
+      group.position.copy(this.targetPosition)
+      group.quaternion.copy(this.targetRotation)
+      this.initialized = true
+    } else {
+      // Walk thresholds gate the target only. Keep easing between accepted
+      // samples, even after travel stops. Rig movement is inherited directly.
+      const dt = Math.min(deltaTime, 0.05)
+      const alpha = 1 - 2 ** (-dt / FOLLOW_HALF_LIFE)
+      group.position.lerp(this.targetPosition, alpha)
+      group.quaternion.slerp(this.targetRotation, alpha)
+    }
     group.updateWorldMatrix(true, false)
   }
 

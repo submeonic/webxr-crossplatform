@@ -7,7 +7,8 @@ const PANEL_LOGICAL_WIDTH = 600
 const PANEL_LOGICAL_HEIGHT = 556
 const BUTTON_LOGICAL_HEIGHT = 256
 const RENDER_SCALE = 2
-
+const NORMAL_OPACITY = 0.8
+const DIM_OPACITY = 0.15
 
 const COLORS = {
   background: '#121212',
@@ -23,7 +24,6 @@ const COLORS = {
   mutedText: 'rgba(255, 255, 255, 0.68)',
   disabledText: 'rgba(255, 255, 255, 0.38)',
   line: 'rgba(255, 255, 255, 0.14)',
-  lineStrong: 'rgba(255, 255, 255, 0.72)',
   exit: '#ff8a9c',
 }
 
@@ -47,36 +47,23 @@ function disposeObject3D(root) {
   })
 }
 
-function drawRect(ctx, x, y, width, height, options = {}) {
-  ctx.save()
-
-  if (options.fillStyle) {
-    ctx.fillStyle = options.fillStyle
-    ctx.fillRect(x, y, width, height)
-  }
-
-  if (options.strokeStyle) {
-    const lineWidth = options.lineWidth ?? 1
-
-    ctx.strokeStyle = options.strokeStyle
-    ctx.lineWidth = lineWidth
-    ctx.strokeRect(
-      x + lineWidth * 0.5,
-      y + lineWidth * 0.5,
-      width - lineWidth,
-      height - lineWidth,
-    )
-  }
-
-  ctx.restore()
+function drawRoundedSurface(ctx, x, y, width, height, radius, fill, border, lineWidth) {
+  const inset = lineWidth / 2
+  ctx.beginPath()
+  ctx.roundRect(x + inset, y + inset, width - lineWidth, height - lineWidth, radius)
+  ctx.fillStyle = fill
+  ctx.fill()
+  ctx.strokeStyle = border
+  ctx.lineWidth = lineWidth
+  ctx.stroke()
 }
 
 function createCanvasTexture(canvas) {
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
-  texture.minFilter = THREE.LinearFilter
+  texture.minFilter = THREE.LinearMipmapLinearFilter
   texture.magFilter = THREE.LinearFilter
-  texture.generateMipmaps = false
+  texture.generateMipmaps = true
   return texture
 }
 
@@ -129,9 +116,10 @@ export class PalmNavigationMenu {
     this.panelTexture = createCanvasTexture(this.panelCanvas)
     this.panelMaterial = new THREE.MeshBasicMaterial({
       map: this.panelTexture,
+      opacity: NORMAL_OPACITY,
       transparent: true,
       depthTest: true,
-      depthWrite: true,
+      depthWrite: false,
       side: THREE.DoubleSide,
       toneMapped: false,
     })
@@ -235,34 +223,22 @@ export class PalmNavigationMenu {
       PANEL_LOGICAL_HEIGHT,
     )
 
-    ctx.fillStyle = COLORS.background
-    ctx.fillRect(
-      0,
-      0,
-      PANEL_LOGICAL_WIDTH,
-      PANEL_LOGICAL_HEIGHT,
-    )
+    const surface = ctx.createLinearGradient(0, 0, PANEL_LOGICAL_WIDTH, PANEL_LOGICAL_HEIGHT)
+    surface.addColorStop(0, '#353630')
+    surface.addColorStop(0.45, '#212220')
+    surface.addColorStop(1, COLORS.background)
+    drawRoundedSurface(ctx, 1, 1, PANEL_LOGICAL_WIDTH - 2, PANEL_LOGICAL_HEIGHT - 2,
+      30, surface, 'rgba(255, 247, 208, 0.46)', 2.5)
 
-    drawRect(
-      ctx,
-      1,
-      1,
-      PANEL_LOGICAL_WIDTH - 2,
-      PANEL_LOGICAL_HEIGHT - 2,
-      {
-        strokeStyle: COLORS.lineStrong,
-        lineWidth: 2,
-      },
-    )
-
-    ctx.textAlign = 'center'
+    ctx.textAlign = 'left'
     ctx.textBaseline = 'middle'
     ctx.fillStyle = COLORS.brand
     ctx.font = `bold 43px ${FONT_DISPLAY}`
     ctx.fillText(
       this.heading,
-      PANEL_LOGICAL_WIDTH * 0.5,
-      54,
+      36,
+      53,
+      414,
     )
 
     ctx.strokeStyle = COLORS.line
@@ -430,7 +406,7 @@ export class PalmNavigationMenu {
       transparent: true,
       alphaTest: 0.01,
       depthTest: true,
-      depthWrite: true,
+      depthWrite: false,
       side: THREE.DoubleSide,
       toneMapped: false,
     })
@@ -467,8 +443,7 @@ export class PalmNavigationMenu {
   setDimmed(dimmed) {
     if (this.dimmed === dimmed) return
     this.dimmed = dimmed
-    this.panelMaterial.opacity = dimmed ? 0.15 : 1
-    this.panelMaterial.depthWrite = !dimmed
+    this.panelMaterial.opacity = dimmed ? DIM_OPACITY : NORMAL_OPACITY
     this.refreshButtonVisuals()
   }
 
@@ -510,8 +485,7 @@ export class PalmNavigationMenu {
         (button.item.kind === 'simulation' && button.item.id === this.activeSimulationId) ||
         (['action','tab'].includes(button.item.kind) && Boolean(button.item.active))
 
-      button.material.opacity = this.dimmed ? 0.15 : 1
-      button.material.depthWrite = !this.dimmed
+      button.material.opacity = this.panelMaterial.opacity
       button.disabled = Boolean(
         (this.dimmed && button.item.kind !== 'visibility') || button.item.disabled ||
         (button.active && button.item.kind === 'simulation'),
@@ -596,21 +570,9 @@ export class PalmNavigationMenu {
       BUTTON_LOGICAL_HEIGHT,
     )
 
-    drawRect(
-      ctx,
-      1,
-      1,
-      logicalWidth - 2,
-      BUTTON_LOGICAL_HEIGHT - 2,
-      {
-        fillStyle: colors.fill,
-        strokeStyle: colors.border,
-        lineWidth:
-          button.hovered || button.active || button.pressed
-            ? 8
-            : 5,
-      },
-    )
+    const lineWidth = button.hovered || button.active || button.pressed ? 7 : 4
+    drawRoundedSurface(ctx, 1, 1, logicalWidth - 2, BUTTON_LOGICAL_HEIGHT - 2,
+      42, colors.fill, colors.border, lineWidth)
 
     ctx.textAlign = 'center'
     ctx.textBaseline = 'middle'

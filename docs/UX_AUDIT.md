@@ -3,8 +3,9 @@
 ## November 18, 2026 · persistent XR navigation and shorter lesson
 
 The lower-left panel is available on the first tracked viewer frame, including
-when neither hand is visible. Either index finger can press a button. The eye
-dims the backing and controls to 15%; while dimmed only the eye accepts a poke.
+when neither hand is visible. The rounded backing and buttons start at 80%
+opacity. Either index finger can press the eye to dim them to 15%. While
+dimmed, only the eye accepts a poke.
 A front approach arms a button and a held finger activates it once. Losing
 tracking, changing hands or engaging locomotion or pinch clears the press.
 
@@ -13,10 +14,13 @@ place. Physical walking starts after 24 cm of net horizontal headset travel.
 During walking, another 1.2 cm updates placement, and a 180 ms pause restores
 the start threshold. Predominantly vertical movement rebases the walking
 measurement. Travel and turn commands use the locomotion control's existing
-dead zone and reposition the panel immediately. In both cases its offset
+dead zone and update the target immediately. In both cases its offset
 follows horizontal gaze. Near vertical gaze retains the last usable heading.
 A long horizontal lean can resemble a step to headset-only tracking.
-Physical reach and the movement thresholds still need headset trials.
+The panel interpolates its rig-local position and rotation on every frame,
+halving the remaining gap every 80 ms. After movement stops it settles toward
+the last accepted pose. Simulated 72, 90, and 120 Hz updates cover the timing.
+Physical comfort and reach still need headset trials.
 
 Automated checks exercised both index fingers, dim and restore, suspended
 pokes, loss of hand tracking, room-scale travel, rig turns, glance stability
