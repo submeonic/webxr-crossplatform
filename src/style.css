@@ -186,6 +186,27 @@ body {
   line-height: 27px;
 }
 
+.xr-controls-preview {
+  max-width: 42rem;
+  margin: 2.5rem auto 0;
+}
+
+.xr-controls-preview figcaption {
+  margin-bottom: 0.7rem;
+  color: var(--brand);
+  font-family: var(--font-display);
+  font-size: 1.65rem;
+}
+
+.xr-controls-preview video {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--canvasBg);
+}
+
 /* Main two-column lesson workspace */
 .content {
   position: relative;

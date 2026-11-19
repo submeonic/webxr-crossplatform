@@ -104,7 +104,7 @@ export class HandInteractionSystem {
     const thumbTip = hand?.joints?.['thumb-tip']
     const indexTip = hand?.joints?.['index-finger-tip']
 
-    if (!thumbTip || !indexTip || !thumbTip.visible || !indexTip.visible) {
+    if (!hand?.visible || !hand.joints?.wrist?.visible || !thumbTip?.visible || !indexTip?.visible) {
       this.clearHandVisibility(handState)
       return
     }

@@ -1,10 +1,11 @@
 import * as THREE from 'three'
+import { createXRControlsGuide } from '../systems/ui/createXRControlsGuide.js'
 import { INTERFACE_THEME } from '../systems/ui/interfaceTheme.js'
 import { updateXRInput } from '../systems/interaction/updateXRInput.js'
 
 import { VRButton } from 'three/examples/jsm/webxr/VRButton.js'
 import { XRControllerModelFactory } from 'three/examples/jsm/webxr/XRControllerModelFactory.js'
-import { XRHandModelFactory } from 'three/examples/jsm/webxr/XRHandModelFactory.js'
+import { createTrackedHandModels } from '../systems/interaction/createTrackedHandModels.js'
 import { OrbitCameraController } from '../systems/navigation/OrbitCameraController.js'
 import { WebInteractionController } from '../systems/navigation/WebInteractionController.js'
 import { PalmNavigationSystem } from '../systems/navigation/PalmNavigationSystem.js'
@@ -40,6 +41,7 @@ export function createWebXRApp(options = {}) {
   playerRig.name = 'PlayerRig'
   playerRig.add(camera)
   scene.add(playerRig)
+  const controlsGuide = createXRControlsGuide(scene, playerRig, document.querySelector('#xr-controls-video'))
 
   const renderer = new THREE.WebGLRenderer({
     antialias: true,
@@ -141,7 +143,6 @@ export function createWebXRApp(options = {}) {
   scene.add(dirLight)
 
   const controllerModelFactory = new XRControllerModelFactory()
-  const handModelFactory = new XRHandModelFactory()
 
   const xrHands = []
   const showHandModels = options.showHandModels ?? true
@@ -155,18 +156,14 @@ export function createWebXRApp(options = {}) {
     playerRig.add(grip)
 
     const hand = renderer.xr.getHand(i)
-    hand.name = i === 0 ? 'XRHand_Left' : 'XRHand_Right'
-    hand.visible = false
-
-    if (showHandModels) {
-      const handModel = handModelFactory.createHandModel(hand, 'mesh')
-      handModel.name = i === 0 ? 'XRHandModel_Left' : 'XRHandModel_Right'
-      hand.add(handModel)
-    }
-
+    hand.name = 'XRHandSlot_' + i
     playerRig.add(hand)
     xrHands.push(hand)
   }
+
+  const handModels = showHandModels
+    ? createTrackedHandModels(xrHands, `${import.meta.env.BASE_URL}webxr/models/hands/`)
+    : null
 
   const activeHandProfile = options.activeHandProfile ?? detectDeviceProfile()
 
@@ -338,9 +335,11 @@ export function createWebXRApp(options = {}) {
     // webpage simulation is intentionally preserved.
     resetXRPlayerRig()
     resetActiveXRInteraction('xr-session-start')
+    controlsGuide.start()
   }
 
   function handleXRSessionEnd() {
+    controlsGuide.stop()
     resetActiveXRInteraction('xr-session-end')
     handLocomotionSystem.reset()
     handInteractionSystem.reset()
@@ -501,25 +500,6 @@ export function createWebXRApp(options = {}) {
     }
   }
 
-  function updateXRHandModelVisibility(isXR) {
-    for (const hand of xrHands) {
-      if (!isXR || !showHandModels) {
-        hand.visible = false
-        continue
-      }
-
-      const wrist = hand.joints?.wrist
-      const indexTip = hand.joints?.['index-finger-tip']
-      const thumbTip = hand.joints?.['thumb-tip']
-
-      hand.visible = Boolean(
-        wrist?.visible ||
-        indexTip?.visible ||
-        thumbTip?.visible,
-      )
-    }
-  }
-
   function updateDebugPanel(locomotionState, interactionState) {
     if (!(options.showXRDebugPanel ?? false)) return
 
@@ -602,9 +582,10 @@ export function createWebXRApp(options = {}) {
       let interactionState
       let palmNavigationState
 
-      updateXRHandModelVisibility(isXR)
+      handModels?.update(isXR)
 
       if (isXR) {
+        controlsGuide.update(renderer.xr)
         ;({ locomotionState, interactionState, palmNavigationState } = updateXRInput({
           deltaTime, app: publicApi, playerRig, handLocomotionGestureSystem,
           handLocomotionSystem, handInteractionSystem, palmNavigationSystem,
@@ -668,6 +649,8 @@ export function createWebXRApp(options = {}) {
       handleXRSessionEnd,
     )
 
+    controlsGuide.stop()
+    handModels?.dispose()
     resetActiveXRInteraction('app-dispose')
     palmNavigationSystem.dispose()
     pinchDragIndicator.dispose()

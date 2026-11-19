@@ -135,6 +135,21 @@ Pinch thresholds remain 18mm enter and 40mm release sustained for 100ms.
 Axis switching preserves the current measurement and inspection value. Full-range
 vertical travel remains 18cm in XR and 260px on the web.
 
+## XR controls film and tracked hands
+
+The 29.3-second controls film covers locomotion, pinch interaction, and panel
+navigation. The web player loads the MP4 on demand. Each immersive session plays
+the same silent file once on a screen placed in the room above the simulation.
+Ending playback or leaving XR releases its video texture.
+
+The H.264 file in `public/webxr/media/` uses 30 fps and fast-start MP4. Its
+1280 × 720 picture has a separate 112-pixel instruction strip. The average
+bitrate is 1.70 Mb/s (2.5 Mb/s encoder ceiling), yielding a 6.21 MB file.
+
+Tracked hands use one local skin per side across input-source changes. A skin
+becomes visible after the runtime supplies its wrist, knuckle and bone poses.
+The hand models and upstream license are in `public/webxr/models/hands/`.
+
 ## Runtime architecture
 
 `src/main.js` creates four family/lesson instances: 1s, 2s, 2p and 3d. It connects
